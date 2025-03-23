@@ -1,0 +1,54 @@
+- name: Deploy React-Node App to Kubernetes
+  hosts: localhost
+  connection: local
+  vars:
+    kubeconfig_path: "/home/aaht14/.kube/config"
+
+  tasks:
+    - name: Apply Kubernetes ConfigMap (Environment Variables)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/configmap.yaml
+
+    - name: Apply Kubernetes Secret (Sensitive Variables)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/secret.yaml
+
+    - name: Apply Backend Deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/backend-deployment.yaml
+
+    - name: Apply Backend Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/backend-service.yaml
+
+    - name: Apply Frontend Deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/frontend-deployment.yaml
+
+    - name: Apply Frontend Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/frontend-service.yaml
+
+    - name: Apply SQL Server Deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/sqlserver-deployment.yaml
+
+    - name: Apply SQL Server Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/sqlserver-service.yaml

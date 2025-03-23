@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      # Database
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL_SQL=${DATABASE_URL_SQL}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SERVER=${DB_SERVER}
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      # Integration APIs
+      - SHUFTI_CLIENT_ID=${SHUFTI_CLIENT_ID}
+      - SHUFTI_SECRET_KEY=${SHUFTI_SECRET_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_SECRET_KEY=${GOOGLE_SECRET_KEY}
+      - FEDEX_CLIENT_ID=${FEDEX_CLIENT_ID}
+      - FEDEX_CLIENT_SECRET=${FEDEX_CLIENT_SECRET}
+      - FEDEX_SHIP_CLIENT_ID=${FEDEX_SHIP_CLIENT_ID}
+      - FEDEX_SHIP_CLIENT_SECRET=${FEDEX_SHIP_CLIENT_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      # Email and Communication
+      - EMAIL_USER=${EMAIL_USER}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_SHEP_API_KEY=${RESEND_SHEP_API_KEY}
+      - ABLY_API_KEY=${ABLY_API_KEY}
+      # UAE Integration
+      - UAE_CLIENT_ID=${UAE_CLIENT_ID}
+      - UAE_CLIENT_SECRET=${UAE_CLIENT_SECRET}
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+      - ./frontend/nginx/nginx-security.conf:/etc/nginx/conf.d/nginx-security.conf
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001
+      - REACT_APP_BACKEND_URL=http://localhost:5001
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  node_modules:
