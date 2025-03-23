@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-dotnet-app
+  namespace: default  # <-- Add this line
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-dotnet-app
+  template:
+    metadata:
+      labels:
+        app: my-dotnet-app
+    spec:
+      containers:
+        - name: my-dotnet-app
+          image: my-dotnet8-app:latest  # Local image, built in Jenkins
+          imagePullPolicy: Never        # Ensures it uses the locally built image
+          ports:
+            - containerPort: 8080
