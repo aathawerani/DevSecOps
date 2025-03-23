@@ -27,7 +27,7 @@ pipeline {
                 bat 'cd backend && npm install'
             }
         }
-        stage('Security Audit') {
+		stage('Security Audit') {
             steps {
                 script {
                     failedStage = "Security Audit"
@@ -36,135 +36,13 @@ pipeline {
                 bat 'cd backend && npm audit --json > audit-report-backend.json'
                 bat 'retire --path frontend --outputformat json --outputfile retire-frontend.json'
                 bat 'retire --path backend --outputformat json --outputfile retire-backend.json'
+                bat 'npm install -g audit-html' // Install audit-html for report generation
+                bat 'audit-html --input audit-report-frontend.json --output audit-report-frontend.html'
+                bat 'audit-html --input audit-report-backend.json --output audit-report-backend.html'
+                bat 'retire --path frontend --outputformat html --outputfile retire-frontend.html'
+                bat 'retire --path backend --outputformat html --outputfile retire-backend.html'
             }
         }
-		stage('Dependency Check') {
-            steps {
-	            script {
-	        		failedStage = "Dependency Check"  //Set stage name
-	        	}
-                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "QR-code" --scan . --format JSON --format HTML --format XML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --log dependency-check.log'
-			}
-		}
-		stage('Dependency Check Report') {
-            steps {
-                dependencyCheckPublisher( //not working in my case
-				    pattern: '**/dependency-check-report/dependency-check-report.xml',
-				    failedTotalCritical: 1,  // Pipeline fails if at least 1 Critical issue exists
-				    unstableTotalCritical: 1
-				    //failedTotalHigh: 3,      // Pipeline fails if 3+ High issues exist
-				    //failedTotalMedium: 5     // Pipeline fails if 5+ Medium issues exist
-				)
-                script {
-            		failedStage = "Dependency Check Report"  //Set stage name
-                    def reportFile = 'dependency-check-report/dependency-check-report.json'
-                    def allIssues = []
-                    def criticalIssues = [] 
-
-                    if (!fileExists(reportFile)) {
-		                error "Dependency-Check JSON report not found. Failing pipeline."
-		            }
-
-		            def jsonText = readFile(reportFile).trim()
-		            if (!jsonText || jsonText == "{}") {
-		                error "Dependency-Check JSON report is empty. Failing pipeline."
-		            }
-
-                    // Parse JSON report
-                    def jsonReport = readJSON file: reportFile
-
-                    def getExistingIssues = { ->
-                        def response = bat(
-                            script: """
-                                "D:\\DevOps\\curl\\bin\\curl.exe" -s -X GET -H "Authorization: token %GITHUB_TOKEN%" ^
-                                     -H "Accept: application/vnd.github.v3+json" ^
-                                     https://api.github.com/repos/${GITHUB_REPO}/issues?state=open
-                            """,
-                            returnStdout: true
-                        ).trim()
-
-						response = response.substring(response.indexOf("["))
-                        def issues = readJSON text: response
-                        return issues
-                    }
-
-                    for (dep in jsonReport.dependencies) {
-                        for (vuln in dep.vulnerabilities) {
-                            def issueTitle = "[${vuln.severity}] ${vuln.name}"
-                            def issueBody = "${vuln.name}: ${vuln.description}"
-                            allIssues.add([title: issueTitle, body: issueBody])
-                            if (vuln.severity?.trim().toLowerCase() == "critical") {
-		                        criticalIssues.add(issueTitle + ": " + issueBody)
-		                    }
-                        }
-                    }
-
-                    //Call the closure like a function: doesIssueExist(issue.title)
-                    def existingIssues = getExistingIssues()
-					for (issue in allIssues) {
-					    if (!existingIssues.any { it.title == issue.title }) {
-					        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-					            //Write JSON payload to a file
-					            def jsonPayload = """
-					            {
-					                "title": "${issue.title}",
-					                "body": "${issue.body.replace('"', '\\"')}",
-					                "labels": ["security"]
-					            }
-					            """
-					            writeFile file: "payload.json", text: jsonPayload
-
-					            //Use `-d @payload.json` instead of inline JSON
-					            bat """
-					                "D:\\DevOps\\curl\\bin\\curl.exe" -X POST -H "Authorization: token %GITHUB_TOKEN%" ^
-					                -H "Accept: application/vnd.github.v3+json" ^
-					                https://api.github.com/repos/${GITHUB_REPO}/issues ^
-					                -d @payload.json
-					            """
-					        }
-					    } else {
-					        echo "Issue '${issue.title}' already exists in GitHub. Skipping creation."
-					    }
-					}
-					def htmlReport = 'dependency-check-report/dependency-check-report.html'
-					if (!fileExists(htmlReport)) {
-		                error "Dependency-Check HTML report not found. Skipping email."
-		            }
-
-		            def htmlContent = readFile(htmlReport)
-
-		            if (!allIssues.isEmpty()) {
-		            	emailext(
-		                    to: "${EMAIL_RECIPIENT}",
-		                    subject: "Dependency-Check Report for QR-code",
-		                    body: """
-							    Attached is the full Dependency-Check security report.
-
-							    **Critical Issues Found:** ${criticalIssues.size()}
-							    """,
-		                    attachmentsPattern: "dependency-check-report/dependency-check-report.html"
-		                )
-					}
-		            if (!criticalIssues.isEmpty()) {
-					    //error "Pipeline halted due to ${criticalIssues.size()} critical security vulnerabilities."
-					    echo "Critical issues found. Pipeline continuing for testing."
-					} else {
-		                echo "No critical issues found. Pipeline continuing."
-		            }
-                }
-            }
-        }
-		stage('Build'){
-			steps{
-				script {
-					failedStage = "Build"  //Set stage name
-                }
-				dir('GenerateQR/GenerateQR_v3/GenerateQR'){
-					bat 'dotnet restore'
-					bat 'dotnet build --configuration Release'
-				}
-			}
-		}
 		stage('SonarQube Analysis') {
 		    steps {
 		        script {
