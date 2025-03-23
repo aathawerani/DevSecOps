@@ -64,13 +64,13 @@ pipeline {
                 )
             }
         }
-        stage('Load Docker Image into Kubernetes') {
+        stage('Load Docker Images into Kubernetes') {
             steps {
                 script {
-                    failedStage = "Load Docker Image into Kubernetes"
-                    bat '''
-                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kind load docker-image %DOCKER_IMAGE%:%IMAGE_TAG%"
-                    '''
+                    failedStage = "Load Docker Images into Kubernetes"
+                    bat """
+                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kind load docker-image %FRONTEND_IMAGE%:%IMAGE_TAG% && kind load docker-image %BACKEND_IMAGE%:%IMAGE_TAG%"
+                    """
                 }
             }
         }
