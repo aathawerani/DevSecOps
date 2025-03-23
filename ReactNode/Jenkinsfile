@@ -8,6 +8,8 @@ pipeline {
         GITHUB_REPO = 'aathawerani/PaymentGateway'
         GITHUB_TOKEN = credentials('github-token')
         EMAIL_RECIPIENT = 'athawerani@gmail.com'
+        FRONTEND_DIR = "frontend"
+        BACKEND_DIR = "backend"
     }
 	stages{
 		stage('Checkout'){
@@ -23,8 +25,12 @@ pipeline {
                 script {
                     failedStage = "Install Dependencies"
                 }
-                bat 'cd frontend && npm install --legacy-peer-deps'
-                bat 'cd backend && npm install'
+                dir(FRONTEND_DIR) {
+                    bat "npm install  --legacy-peer-deps"
+                }
+                dir(BACKEND_DIR) {
+                    bat "npm install"
+                }
             }
         }
 		stage('Security Audit') {
