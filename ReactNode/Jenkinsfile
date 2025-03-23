@@ -5,7 +5,7 @@ pipeline {
         SONARQUBE_URL = 'http://localhost:9000'
         SONARQUBE_TOKEN = credentials('c5ce0640-9155-42e4-9756-b09c801bf2f1') // Replace with your credential ID
         GIT_CREDENTIALS_ID = 'github-credentials'
-        GITHUB_REPO = 'aathawerani/Utilitites'
+        GITHUB_REPO = 'aathawerani/PaymentGateway'
         GITHUB_TOKEN = credentials('github-token')
         EMAIL_RECIPIENT = 'athawerani@gmail.com'
     }
@@ -15,9 +15,18 @@ pipeline {
 				script {
 					failedStage = "Checkout"  //Set stage name
                 }
-				git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/aathawerani/Utilitites.git'
+				git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/${GITHUB_REPO}.git'
 			}
 		}
+		stage('Install Dependencies') {
+            steps {
+                script {
+                    failedStage = "Install Dependencies"
+                }
+                bat 'cd frontend && npm install --legacy-peer-deps'
+                bat 'cd backend && npm install'
+            }
+        }
 		stage('Dependency Check') {
             steps {
 	            script {
