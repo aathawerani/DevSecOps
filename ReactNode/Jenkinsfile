@@ -27,6 +27,17 @@ pipeline {
                 bat 'cd backend && npm install'
             }
         }
+        stage('Security Audit') {
+            steps {
+                script {
+                    failedStage = "Security Audit"
+                }
+                bat 'cd frontend && npm audit --json > audit-report-frontend.json'
+                bat 'cd backend && npm audit --json > audit-report-backend.json'
+                bat 'retire --path frontend --outputformat json --outputfile retire-frontend.json'
+                bat 'retire --path backend --outputformat json --outputfile retire-backend.json'
+            }
+        }
 		stage('Dependency Check') {
             steps {
 	            script {
