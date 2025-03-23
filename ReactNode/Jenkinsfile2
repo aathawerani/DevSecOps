@@ -1,0 +1,154 @@
+def failedStage = "Unknown Stage"  // Variable to track failed stage
+
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'github-credentials'
+        GITHUB_REPO = 'aathawerani/PaymentGateway'
+        GITHUB_TOKEN = credentials('github-token')
+        EMAIL_RECIPIENT = 'athawerani@gmail.com'
+        DOCKER_IMAGE = "my-dotnet8-app"
+        IMAGE_TAG = "latest"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    failedStage = "Checkout"
+                }
+                git branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}", url: "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+            }
+        }
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    failedStage = "Docker Build & Push"
+                }
+				dir('GenerateQR/GenerateQR_v3/GenerateQR') {
+                    bat """
+                        docker build -t %DOCKER_IMAGE%:%IMAGE_TAG% .
+                        docker tag %DOCKER_IMAGE%:%IMAGE_TAG% %DOCKER_IMAGE%:%BUILD_NUMBER%
+                        docker images
+                    """
+                }
+            }
+        }
+        stage('Docker Security Scan') {
+            steps {
+                script {
+                    failedStage = "Docker Security Scan"
+                }
+                bat '''
+                "D:\\DevOps\\trivy\\trivy" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template "D:\\DevOps\\trivy\\contrib\\html.tpl" --output trivy-report.html %DOCKER_IMAGE%:%IMAGE_TAG%
+                '''
+            }
+        }
+        stage('Load Docker Image into Kubernetes') {
+            steps {
+                script {
+                    failedStage = "Load Docker Image into Kubernetes"
+                    bat '''
+                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kind load docker-image %DOCKER_IMAGE%:%IMAGE_TAG%"
+                    '''
+                }
+            }
+        }
+        stage('Deploy to Kubernetes using Ansible') {
+            steps {
+                script {
+                    failedStage = "Deploy to Kubernetes using Ansible"
+                    bat '''
+                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "ansible-playbook -i /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/inventory.ini /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/deploy_app.yaml"
+                    '''
+                }
+            }
+        }
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // Wait for pods to be ready
+                    bat '''
+                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kubectl rollout status deployment/my-dotnet-app --timeout=60s"
+                    '''
+                    // Ensure proper interpolation and formatting for curl command
+                    bat "ssh -i C:\\\\Windows\\\\System32\\\\config\\\\systemprofile\\\\.ssh\\\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost curl --fail http://localhost:32356 || exit 1"
+                }
+            }
+        }
+        stage('OWASP ZAP Security Scan') {
+            steps {
+                script {
+                    failedStage = "OWASP ZAP Security Scan"
+                }
+
+                bat '''
+                set ZAP_HOMEDIR="D:\\DevOps\\jenkins\\.jenkins\\workspace\\DevSecOps3\\ZAP\\Zed_Home"
+                java -jar "D:\\DevOps\\ZAP\\Zed Attack Proxy\\zap-2.16.0.jar" -cmd -quickurl "http://localhost:32356" -quickprogress -quickout zap_report.html -host 127.0.0.1 -port 9090
+                '''
+            }
+        }
+    }
+    post {
+        success {
+            emailext (
+                to: "${EMAIL_RECIPIENT}",
+                subject: "SUCCESS: ${currentBuild.fullDisplayName}",
+                body: """
+                <html>
+                <body>
+                <h2>Jenkins Pipeline Build Succeeded</h2>
+                <p><strong>Build:</strong> ${currentBuild.fullDisplayName}</p>
+                <p><strong>Branch:</strong> ${GITHUB_REPO}</p>
+                <p><a href="${env.BUILD_URL}">Click here</a> to view details.</p>
+                </body></html>
+                """,
+                mimeType: 'text/html',
+                attachLog: true
+            )
+        }
+        failure {
+            script {
+                echo "Jenkins Pipeline Failed! Sending email notification."
+                def buildStatus = currentBuild.result ?: "FAILED"
+                def buildDuration = currentBuild.durationString
+                def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('UTC'))
+
+                emailext (
+                    to: "${EMAIL_RECIPIENT}",
+                    subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    <html>
+                    <body>
+                    <h2>Jenkins Pipeline Failure Notification</h2>
+                    <p><strong>Build Status:</strong> ${buildStatus}</p>
+                    <p><strong>Failed Stage:</strong> ${failedStage}</p>
+                    <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                    <p><strong>Build Duration:</strong> ${buildDuration}</p>
+                    <p><strong>Timestamp (UTC):</strong> ${timestamp}</p>
+                    <p><strong>Job:</strong> <a href="${env.BUILD_URL}">${env.JOB_NAME} #${env.BUILD_NUMBER}</a></p>
+                    <p>Please check the <a href="${env.BUILD_URL}console">Jenkins Console Logs</a> for full details.</p>
+                    </body></html>
+                    """,
+                    mimeType: 'text/html',
+                    attachLog: true
+                )
+            }
+        }
+        unstable {
+            emailext (
+                to: "${EMAIL_RECIPIENT}",
+                subject: "UNSTABLE: ${currentBuild.fullDisplayName}",
+                body: """
+                <html>
+                <body>
+                <h2>Jenkins Pipeline is Unstable</h2>
+                <p>The build <strong>${currentBuild.fullDisplayName}</strong> completed with warnings.</p>
+                <p>Please check the results at <a href="${env.BUILD_URL}">${env.BUILD_URL}</a>.</p>
+                </body></html>
+                """,
+                mimeType: 'text/html',
+                attachLog: true
+            )
+        }
+    }
+}
