@@ -7,7 +7,10 @@ pipeline {
         GITHUB_REPO = 'aathawerani/PaymentGateway'
         GITHUB_TOKEN = credentials('github-token')
         EMAIL_RECIPIENT = 'athawerani@gmail.com'
-        DOCKER_IMAGE = "my-dotnet8-app"
+        FRONTEND_DIR = "frontend"
+        BACKEND_DIR = "backend"
+        FRONTEND_IMAGE = "my-frontend-app"
+        BACKEND_IMAGE = "my-backend-app"
         IMAGE_TAG = "latest"
     }
     stages {
@@ -24,13 +27,26 @@ pipeline {
                 script {
                     failedStage = "Docker Build & Push"
                 }
-				dir('GenerateQR/GenerateQR_v3/GenerateQR') {
-                    bat """
-                        docker build -t %DOCKER_IMAGE%:%IMAGE_TAG% .
-                        docker tag %DOCKER_IMAGE%:%IMAGE_TAG% %DOCKER_IMAGE%:%BUILD_NUMBER%
-                        docker images
-                    """
-                }
+                parallel (
+                    frontend: {
+                        dir('frontend') {
+                            bat """
+                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
+                                docker images
+                            """
+                        }
+                    },
+                    backend: {
+                        dir('backend') {
+                            bat """
+                                docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
+                                docker images
+                            """
+                        }
+                    }
+                )
             }
         }
         stage('Docker Security Scan') {
