@@ -40,13 +40,10 @@ pipeline {
                 }
                 dir(FRONTEND_DIR) {
                 	bat 'npm audit --json > audit-report-frontend.json'
-                	bat 'retire --path frontend --outputformat json > retire-frontend.json'
-                	bat 'audit-html --input audit-report-frontend.json --output audit-report-frontend.html'
-                	bat 'retire --path frontend --outputformat html --outputfile retire-frontend.html'
                 }
                 dir(BACKEND_DIR) {
                 	bat 'npm audit --json > audit-report-backend.json'
-                	bat 'retire --path backend --outputformat json --outputfile retire-backend.json'
+                	bat 'retire --path backend --outputformat json > retire-backend.json'
                 	bat 'audit-html --input audit-report-backend.json --output audit-report-backend.html'
                 	bat 'retire --path backend --outputformat html --outputfile retire-backend.html'
                 }
