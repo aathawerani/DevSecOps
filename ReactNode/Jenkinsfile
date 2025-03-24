@@ -17,7 +17,7 @@ pipeline {
 				script {
 					failedStage = "Checkout"  //Set stage name
                 }
-				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/PaymentGateway.git'
+				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
 		stage('Install Dependencies') {
