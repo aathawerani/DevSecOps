@@ -27,11 +27,11 @@ pipeline {
                 }
                 dir(FRONTEND_DIR) {
                     bat "npm install  --legacy-peer-deps"
-                    bat "yarn install"
+                    bat '"C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn" install'
                 }
                 dir(BACKEND_DIR) {
                     bat "npm install"
-                    bat "yarn install"
+                    bat '"C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn" install'
                 }
             }
         }
