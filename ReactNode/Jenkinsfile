@@ -38,7 +38,7 @@ pipeline {
 	            script {
 	        		failedStage = "Dependency Check"  //Set stage name
 	        	}
-                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --log dependency-check.log --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
+                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
 			}
 		}
 		stage('Security Audit') {
@@ -47,16 +47,12 @@ pipeline {
                     failedStage = "Security Audit"
                 }
                 dir(FRONTEND_DIR) {
-                	bat 'npm audit --json > audit-report-frontend.json'
-                	//bat 'retire --path . --outputformat json > retire-frontend.json'
-                	//bat 'audit-html --input audit-report-frontend.json --output audit-report-frontend.html'
-                	//bat 'retire --path frontend --outputformat html --outputfile retire-frontend.html'
+                	bat 'npm audit --json'
+                	bat 'retire --path . --outputformat json > retire-frontend.json'
                 }
                 dir(BACKEND_DIR) {
-                	bat 'npm audit --json > audit-report-backend.json'
+                	bat 'npm audit --json'
                 	bat 'retire --path . --outputformat json > retire-backend.json'
-                	bat 'audit-html --input audit-report-backend.json --output audit-report-backend.html'
-                	bat 'retire --path backend --outputformat html --outputfile retire-backend.html'
                 }
             }
         }
@@ -66,8 +62,12 @@ pipeline {
                     failedStage = "SonarQube Analysis"
                 }
                 withSonarQubeEnv('SonarQube') {
-                    bat 'cd frontend && npx sonarqube-scanner'
-                    bat 'cd backend && npx sonarqube-scanner'
+	                dir(FRONTEND_DIR) {
+                    	bat 'npx sonarqube-scanner'
+	                }
+	                dir(BACKEND_DIR) {
+                    	bat 'npx sonarqube-scanner'
+	                }
                 }
             }
         }
