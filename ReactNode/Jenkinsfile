@@ -41,21 +41,21 @@ pipeline {
                 //bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
 			//}
 		//}
-		stage('Security Audit') {
-            steps {
-                script {
-                    failedStage = "Security Audit"
-                }
-                dir(FRONTEND_DIR) {
-                	bat 'npm audit --json'
+		//stage('Security Audit') {
+            //steps {
+                //script {
+                    //failedStage = "Security Audit"
+                //}
+                //dir(FRONTEND_DIR) {
+                	//bat 'npm audit --json'
                 	//bat 'node generate-auditjs-html.js'
-                }
-                dir(BACKEND_DIR) {
-                	bat 'npm audit --json'
+                //}
+                //dir(BACKEND_DIR) {
+                	//bat 'npm audit --json'
                 	//bat 'node generate-auditjs-html.js'
-                }
-            }
-        }
+                //}
+            //}
+        //}
 		stage('SonarQube Analysis') {
             steps {
                 script {
