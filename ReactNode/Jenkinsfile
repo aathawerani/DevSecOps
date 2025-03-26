@@ -20,42 +20,27 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		//stage('Install Dependencies') {
-            //steps {
-                //script {
-                    //failedStage = "Install Dependencies"
-                //}
-                //dir(FRONTEND_DIR) {
-                    //bat "npm install  --legacy-peer-deps"
-                //}
-                //dir(BACKEND_DIR) {
-                    //bat "npm install"
-                //}
-            //}
-        //}
-		//stage('Dependency Check') {
-            //steps {
-	            //script {
-	        		//failedStage = "Dependency Check"  //Set stage name
-	        	//}
-                //bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
-			//}
-		//}
-		//stage('Security Audit') {
-            //steps {
-                //script {
-                    //failedStage = "Security Audit"
-                //}
-                //dir(FRONTEND_DIR) {
-                	//bat 'npm audit --json'
-                	//bat 'node generate-auditjs-html.js'
-                //}
-                //dir(BACKEND_DIR) {
-                	//bat 'npm audit --json'
-                	//bat 'node generate-auditjs-html.js'
-                //}
-            //}
-        //}
+		stage('Install Dependencies') {
+            steps {
+                script {
+                    failedStage = "Install Dependencies"
+                }
+                dir(FRONTEND_DIR) {
+                    bat "npm install  --legacy-peer-deps"
+                }
+                dir(BACKEND_DIR) {
+                    bat "npm install"
+                }
+            }
+        }
+		stage('Dependency Check') {
+            steps {
+	            script {
+	        		failedStage = "Dependency Check"  //Set stage name
+	        	}
+                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
+			}
+		}
 		stage('SonarQube Analysis') {
             steps {
                 script {
@@ -63,12 +48,7 @@ pipeline {
                 }
                 withSonarQubeEnv('SonarQube') {
                 	withEnv(["JAVA_HOME=C:\\Program Files\\Microsoft\\jdk-17.0.8.7-hotspot\\bin"]) {
-		                dir(FRONTEND_DIR) {
-	                    	bat 'npx sonarqube-scanner'
-		                }
-		                dir(BACKEND_DIR) {
-	                    	bat 'npx sonarqube-scanner'
-		                }
+                    	bat 'npx sonarqube-scanner'
 		            }
                 }
             }
@@ -130,7 +110,7 @@ pipeline {
 	            body: "The build ${currentBuild.fullDisplayName} succeeded. Check it out at ${env.BUILD_URL}.",
 	            mimeType: 'text/html',
 	            attachLog: true,
-	            attachmentsPattern: "audit-report-frontend.html, audit-report-backend.html, retire-frontend.html, retire-backend.html, sonar-report.html"
+	            attachmentsPattern: "sonar-report.html, dependency-check-report/dependency-check-report.html"
 	        )
         }
 		failure {
@@ -150,7 +130,7 @@ pipeline {
 		            body: "The build failed at stage: ${failedStage}. Check the logs at ${env.BUILD_URL}.",
 		            mimeType: 'text/html',
 		            attachLog: true,
-		            attachmentsPattern: "audit-report-frontend.html, audit-report-backend.html, retire-frontend.html, retire-backend.html, sonar-report.html"
+		            attachmentsPattern: "sonar-report.html, dependency-check-report/dependency-check-report.html"
 		        )
 		    }
 		}
