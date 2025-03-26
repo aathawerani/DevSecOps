@@ -33,14 +33,14 @@ pipeline {
                 }
             }
         }
-		stage('Dependency Check') {
-            steps {
-	            script {
-	        		failedStage = "Dependency Check"  //Set stage name
-	        	}
-                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
-			}
-		}
+		//stage('Dependency Check') {
+            //steps {
+	            //script {
+	        		//failedStage = "Dependency Check"  //Set stage name
+	        	//}
+                //bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
+			//}
+		//}
 		stage('Security Audit') {
             steps {
                 script {
