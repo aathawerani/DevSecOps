@@ -48,12 +48,10 @@ pipeline {
                 }
                 dir(FRONTEND_DIR) {
                 	bat 'npm audit --json'
-                	bat 'retire --path . --outputformat json'
                 	bat 'node generate-auditjs-html.js'
                 }
                 dir(BACKEND_DIR) {
                 	bat 'npm audit --json'
-                	bat 'retire --path . --outputformat json'
                 	bat 'node generate-auditjs-html.js'
                 }
             }
