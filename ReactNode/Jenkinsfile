@@ -20,19 +20,19 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		stage('Install Dependencies') {
-            steps {
-                script {
-                    failedStage = "Install Dependencies"
-                }
-                dir(FRONTEND_DIR) {
-                    bat "npm install  --legacy-peer-deps"
-                }
-                dir(BACKEND_DIR) {
-                    bat "npm install"
-                }
-            }
-        }
+		//stage('Install Dependencies') {
+            //steps {
+                //script {
+                    //failedStage = "Install Dependencies"
+                //}
+                //dir(FRONTEND_DIR) {
+                    //bat "npm install  --legacy-peer-deps"
+                //}
+                //dir(BACKEND_DIR) {
+                    //bat "npm install"
+                //}
+            //}
+        //}
 		//stage('Dependency Check') {
             //steps {
 	            //script {
@@ -48,11 +48,11 @@ pipeline {
                 }
                 dir(FRONTEND_DIR) {
                 	bat 'npm audit --json'
-                	bat 'node generate-auditjs-html.js'
+                	//bat 'node generate-auditjs-html.js'
                 }
                 dir(BACKEND_DIR) {
                 	bat 'npm audit --json'
-                	bat 'node generate-auditjs-html.js'
+                	//bat 'node generate-auditjs-html.js'
                 }
             }
         }
