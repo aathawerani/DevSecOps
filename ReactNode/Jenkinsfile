@@ -62,12 +62,14 @@ pipeline {
                     failedStage = "SonarQube Analysis"
                 }
                 withSonarQubeEnv('SonarQube') {
-	                dir(FRONTEND_DIR) {
-                    	bat 'npx sonarqube-scanner'
-	                }
-	                dir(BACKEND_DIR) {
-                    	bat 'npx sonarqube-scanner'
-	                }
+                	withEnv(["JAVA_HOME=C:\\Program Files\\Microsoft\\jdk-17.0.8.7-hotspot\\bin"]) {
+		                dir(FRONTEND_DIR) {
+	                    	bat 'npx sonarqube-scanner'
+		                }
+		                dir(BACKEND_DIR) {
+	                    	bat 'npx sonarqube-scanner'
+		                }
+		            }
                 }
             }
         }
