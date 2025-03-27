@@ -23,46 +23,36 @@ pipeline {
             }
         }
         stage('Docker Build & Push') {
-            steps {
-                script {
-                    failedStage = "Docker Build & Push"
-                }
-                parallel (
-                    frontend: {
-                        dir('frontend') {
-                            bat """
-                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
-                                docker images
-                            """
-                        }
-                    },
-                    backend: {
-                        dir('backend') {
-                            bat """
-                                docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
-                                docker images
-                            """
-                        }
+            parallel (
+                frontend: {
+                    dir('frontend') {
+                        bat """
+                            docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                            docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
+                            docker images
+                        """
                     }
-                )
-            }
+                },
+                backend: {
+                    dir('backend') {
+                        bat """
+                            docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
+                            docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
+                            docker images
+                        """
+                    }
+                }
+            )
         }
         stage('Docker Security Scan') {
-            steps {
-                script {
-                    failedStage = "Docker Security Scan"
+            parallel (
+                frontend_scan: {
+                    bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
+                },
+                backend_scan: {
+                    bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
                 }
-                parallel (
-                    frontend_scan: {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
-                    },
-                    backend_scan: {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
-                    }
-                )
-            }
+            )
         }
         stage('Load Docker Images into Kubernetes') {
             steps {
@@ -90,18 +80,6 @@ pipeline {
                     bat """
                     ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kubectl rollout status deployment/my-frontend-app --timeout=60s && kubectl rollout status deployment/my-backend-app --timeout=60s"
                     """
-                }
-            }
-        }
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    // Wait for pods to be ready
-                    bat '''
-                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kubectl rollout status deployment/my-dotnet-app --timeout=60s"
-                    '''
-                    // Ensure proper interpolation and formatting for curl command
-                    bat "ssh -i C:\\\\Windows\\\\System32\\\\config\\\\systemprofile\\\\.ssh\\\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost curl --fail http://localhost:32356 || exit 1"
                 }
             }
         }
