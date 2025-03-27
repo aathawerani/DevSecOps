@@ -19,7 +19,7 @@ pipeline {
                 script {
                     failedStage = "Checkout"
                 }
-                git branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}", url: "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+                git branch: 'deployment', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
         stage('Docker Build & Push') {
