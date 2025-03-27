@@ -20,7 +20,7 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		stage('Install Dependencies') {
+		/*stage('Install Dependencies') {
             steps {
                 script {
                     failedStage = "Install Dependencies"
@@ -53,21 +53,21 @@ pipeline {
                 }
             }
         }
-	stage('Build') {
-	    steps {
-	        script {
-	            failedStage = "Build"
-	        }
-	        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-	            dir(FRONTEND_DIR) {
-	                bat "npm run build"
-	            }
-	            dir(BACKEND_DIR) {
-	                bat "npm run build"
-	            }
-	        }
-	    }
-	}
+		stage('Build') {
+		    steps {
+		        script {
+		            failedStage = "Build"
+		        }
+		        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+		            dir(FRONTEND_DIR) {
+		                bat "npm run build"
+		            }
+		            dir(BACKEND_DIR) {
+		                bat "npm run build"
+		            }
+		        }
+		    }
+		}*/
 		stage('Create Pull Request to Deployment') {
 		    steps {
 		        script {
@@ -86,7 +86,7 @@ pipeline {
 		            bat "git config --global user.email \"${GITHUB_EMAIL}\""
 
 		            // Create a pull request using GitHub API
-					withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+					withCredentials([string(credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', variable: 'GITHUB_TOKEN')]) {
 					    bat """
 					        "D:\\DevOps\\curl\\bin\\curl.exe" -X POST ^
 					             -H "Authorization: token %GITHUB_TOKEN%" ^
