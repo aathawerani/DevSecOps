@@ -53,19 +53,21 @@ pipeline {
                 }
             }
         }
-        stage('Build') {
-            steps {
-                script {
-                    failedStage = "Build"
-                }
-                dir(FRONTEND_DIR) {
-                    bat "npm run build"
-                }
-                dir(BACKEND_DIR) {
-                    bat "npm run build"
-                }
-            }
-        }
+	stage('Build') {
+	    steps {
+	        script {
+	            failedStage = "Build"
+	        }
+	        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+	            dir(FRONTEND_DIR) {
+	                bat "npm run build"
+	            }
+	            dir(BACKEND_DIR) {
+	                bat "npm run build"
+	            }
+	        }
+	    }
+	}
 		stage('Create Pull Request to Deployment') {
 		    steps {
 		        script {
