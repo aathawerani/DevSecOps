@@ -23,36 +23,54 @@ pipeline {
             }
         }
         stage('Docker Build & Push') {
-            parallel (
-                frontend: {
-                    dir('frontend') {
-                        bat """
-                            docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                            docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
-                            docker images
-                        """
-                    }
-                },
-                backend: {
-                    dir('backend') {
-                        bat """
-                            docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
-                            docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
-                            docker images
-                        """
+            steps {
+                script {
+                    failedStage = "Docker Build & Push"
+                }
+            }
+            parallel {
+                stage('Build Frontend') {
+                    steps {
+                        dir('frontend') {
+                            bat """
+                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
+                                docker images
+                            """
+                        }
                     }
                 }
-            )
+                stage('Build Backend') {
+                    steps {
+                        dir('backend') {
+                            bat """
+                                docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
+                                docker images
+                            """
+                        }
+                    }
+                }
+            }
         }
         stage('Docker Security Scan') {
-            parallel (
-                frontend_scan: {
-                    bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
-                },
-                backend_scan: {
-                    bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
+            steps {
+                script {
+                    failedStage = "Docker Security Scan"
                 }
-            )
+            }
+            parallel {
+                stage('Scan Frontend') {
+                    steps {
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
+                    }
+                }
+                stage('Scan Backend') {
+                    steps {
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
+                    }
+                }
+            }
         }
         stage('Load Docker Images into Kubernetes') {
             steps {
@@ -88,7 +106,6 @@ pipeline {
                 script {
                     failedStage = "OWASP ZAP Security Scan"
                 }
-
                 bat '''
                 set ZAP_HOMEDIR="D:\\DevOps\\jenkins\\.jenkins\\workspace\\DevSecOps3\\ZAP\\Zed_Home"
                 java -jar "D:\\DevOps\\ZAP\\Zed Attack Proxy\\zap-2.16.0.jar" -cmd -quickurl "http://localhost:32356" -quickprogress -quickout zap_report.html -host 127.0.0.1 -port 9090
