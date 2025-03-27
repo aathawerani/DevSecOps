@@ -104,7 +104,6 @@ pipeline {
         	script {
 	            def sonarReportPath = "sonar-report.html"
 	            bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
-	            bat "jq '.' sonar-report.json > ${sonarReportPath}"
 	        }
             emailext (
 	            to: "${EMAIL_RECIPIENT}",
@@ -112,14 +111,13 @@ pipeline {
 	            body: "The build ${currentBuild.fullDisplayName} succeeded. Check it out at ${env.BUILD_URL}.",
 	            mimeType: 'text/html',
 	            attachLog: true,
-	            attachmentsPattern: "sonar-report.html, dependency-check-report/dependency-check-report.html"
+	            attachmentsPattern: "sonar-report.json, dependency-check-report/dependency-check-report.html"
 	        )
         }
 		failure {
 		    script {
 		        def sonarReportPath = "sonar-report.html"
 		        bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
-		        bat "jq '.' sonar-report.json > ${sonarReportPath}"
         
 		        def buildStatus = currentBuild.result ?: "FAILED"
 		        def failedStageMessage = "Pipeline failed at stage: ${failedStage}"
@@ -132,7 +130,7 @@ pipeline {
 		            body: "The build failed at stage: ${failedStage}. Check the logs at ${env.BUILD_URL}.",
 		            mimeType: 'text/html',
 		            attachLog: true,
-		            attachmentsPattern: "sonar-report.html, dependency-check-report/dependency-check-report.html"
+		            attachmentsPattern: "sonar-report.json, dependency-check-report/dependency-check-report.html"
 		        )
 		    }
 		}
