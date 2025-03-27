@@ -1,5 +1,3 @@
-def failedStage = "Unknown Stage"  // Variable to track failed stage
-
 pipeline {
     agent any
     environment {
@@ -22,14 +20,10 @@ pipeline {
                 git branch: 'deployment', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
+        
         stage('Docker Build & Push') {
-            steps {
-                script {
-                    failedStage = "Docker Build & Push"
-                }
-            }
             parallel {
-                stage('Build Frontend') {
+                stage('Frontend Build') {
                     steps {
                         dir('frontend') {
                             bat """
@@ -40,7 +34,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Build Backend') {
+                stage('Backend Build') {
                     steps {
                         dir('backend') {
                             bat """
@@ -53,25 +47,22 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Security Scan') {
-            steps {
-                script {
-                    failedStage = "Docker Security Scan"
-                }
-            }
             parallel {
-                stage('Scan Frontend') {
+                stage('Frontend Scan') {
                     steps {
                         bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
                     }
                 }
-                stage('Scan Backend') {
+                stage('Backend Scan') {
                     steps {
                         bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"D:\\DevOps\\trivy\\contrib\\html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
                     }
                 }
             }
         }
+
         stage('Load Docker Images into Kubernetes') {
             steps {
                 script {
@@ -82,6 +73,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Kubernetes using Ansible') {
             steps {
                 script {
@@ -92,6 +84,7 @@ pipeline {
                 }
             }
         }
+
         stage('Verify Deployment') {
             steps {
                 script {
@@ -101,6 +94,7 @@ pipeline {
                 }
             }
         }
+
         stage('OWASP ZAP Security Scan') {
             steps {
                 script {
@@ -113,6 +107,7 @@ pipeline {
             }
         }
     }
+    
     post {
         success {
             emailext (
