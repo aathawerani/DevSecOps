@@ -86,7 +86,7 @@ pipeline {
 		            bat "git config --global user.email \"${GITHUB_EMAIL}\""
 
 		            // Create a pull request using GitHub API
-					withCredentials([string(credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', variable: 'GITHUB_TOKEN')]) {
+					withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
 					    bat """
 					        "D:\\DevOps\\curl\\bin\\curl.exe" -X POST ^
 					             -H "Authorization: token %GITHUB_TOKEN%" ^
