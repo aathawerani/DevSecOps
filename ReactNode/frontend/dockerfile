@@ -1,0 +1,62 @@
+# Build stage
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+
+# Set the environment variable during build
+ARG REACT_APP_BACKEND_URL=https://shepherd-backend.azure-api.net
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Install security updates
+RUN apk update && \
+    apk upgrade && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copy configurations
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-security.conf /etc/nginx/conf.d/security.conf
+COPY default.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Validate NGINX configuration
+RUN nginx -t && \
+    nginx -T | grep -v "access_log" > /tmp/nginx_config_dump.txt && \
+    echo "NGINX configuration validation successful"
+
+# Set proper permissions and create required directories
+RUN mkdir -p /var/cache/nginx/client_temp \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/fastcgi_temp \
+    /var/cache/nginx/uwsgi_temp \
+    /var/cache/nginx/scgi_temp && \
+    chown -R appuser:appgroup /var/cache/nginx && \
+    chown -R appuser:appgroup /var/log/nginx && \
+    chown -R appuser:appgroup /etc/nginx/conf.d && \
+    chown -R appuser:appgroup /usr/share/nginx/html && \
+    chown -R appuser:appgroup /etc/nginx && \ 
+    chmod -R 755 /var/cache/nginx && \
+    chmod -R 755 /var/log/nginx && \
+    chmod -R 755 /etc/nginx/conf.d && \
+    chmod -R 755 /usr/share/nginx/html && \
+    chmod -R 755 /etc/nginx && \  
+    touch /var/run/nginx.pid && \
+    chown -R appuser:appgroup /var/run/nginx.pid
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3000
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
