@@ -103,7 +103,7 @@ pipeline {
         success {
         	script {
 	            def sonarReportPath = "sonar-report.html"
-	            bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
+	            //bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
 	        }
             emailext (
 	            to: "${EMAIL_RECIPIENT}",
