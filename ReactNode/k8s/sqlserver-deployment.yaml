@@ -13,29 +13,23 @@ spec:
       labels:
         app: sqlserver
     spec:
-      initContainers:
-        - name: install-mssql-tools
-          image: mcr.microsoft.com/mssql-tools:latest
-          command: ["sh", "-c", "cp -r /opt/mssql-tools /mnt/mssql-tools"]
-          volumeMounts:
-            - mountPath: /mnt/mssql-tools
-              name: mssql-tools
       containers:
         - name: sqlserver
           image: mcr.microsoft.com/mssql/server:2022-latest
           ports:
             - containerPort: 1433
-          envFrom:
-            - secretRef:
-                name: app-secrets
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: sa-password
           volumeMounts:
             - mountPath: /var/opt/mssql
               name: mssql-storage
-            - mountPath: /opt/mssql-tools
-              name: mssql-tools
       volumes:
         - name: mssql-storage
           persistentVolumeClaim:
             claimName: sqlserver-pvc
-        - name: mssql-tools
-          emptyDir: {}

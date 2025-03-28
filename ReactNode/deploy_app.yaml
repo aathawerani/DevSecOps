@@ -37,9 +37,9 @@
 
     # ⏳ Wait for SQL Server Pod to be Ready
     - name: Wait for SQL Server Pod to be Ready
-      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=120s
+      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=180s
       register: sql_ready
-      retries: 5
+      retries: 6
       delay: 10
       until: sql_ready.rc == 0
 
@@ -52,7 +52,7 @@
 
     # 🟢 Execute SQL Initialization Script in SQL Server
     - name: Execute SQL Initialization Script
-      command: kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
+      command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
       ignore_errors: yes
 
     # 🟢 Deploy Backend Service
