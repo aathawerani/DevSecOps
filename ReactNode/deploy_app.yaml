@@ -1,54 +1,71 @@
-- name: Deploy React-Node App to Kubernetes
+- name: Deploy React-Node App with SQL Server
   hosts: localhost
-  connection: local
-  vars:
-    kubeconfig_path: "/home/aaht14/.kube/config"
-
   tasks:
+
+    # 🟢 Apply Kubernetes ConfigMap
     - name: Apply Kubernetes ConfigMap (Environment Variables)
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/configmap.yaml
 
-    - name: Apply Kubernetes Secret (Sensitive Variables)
+    # 🟢 Apply Kubernetes Secrets
+    - name: Apply Kubernetes Secrets
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/secret.yaml
 
-    - name: Apply Backend Deployment
+    # 🟢 Apply Persistent Volume Claim (PVC) for SQL Server
+    - name: Apply SQL Server Persistent Volume Claim (PVC)
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
-        src: k8s/backend-deployment.yaml
+        src: k8s/sqlserver-pvc.yaml
 
-    - name: Apply Backend Service
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        state: present
-        src: k8s/backend-service.yaml
-
-    - name: Apply Frontend Deployment
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        state: present
-        src: k8s/frontend-deployment.yaml
-
-    - name: Apply Frontend Service
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        state: present
-        src: k8s/frontend-service.yaml
-
-    - name: Apply SQL Server Deployment
+    # 🟢 Deploy SQL Server
+    - name: Deploy SQL Server
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/sqlserver-deployment.yaml
 
-    - name: Apply SQL Server Service
+    # ⏳ Wait for SQL Server Pod to be Ready
+    - name: Wait for SQL Server to be Ready
+      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=120s
+      register: sql_ready
+      retries: 5
+      delay: 10
+      until: sql_ready.rc == 0
+
+    # 🟢 Copy SQL Initialization Script to the Kubernetes Pod
+    - name: Copy SQL Init Script to Kubernetes Pod
+      copy:
+        src: init.sql
+        dest: /tmp/init.sql
+
+    # 🟢 Execute SQL Initialization Script
+    - name: Execute SQL Initialization Script
+      command: kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
+      ignore_errors: yes
+
+    # 🟢 Deploy Backend Service
+    - name: Deploy Backend Service
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
-        src: k8s/sqlserver-service.yaml
+        src: k8s/backend-deployment.yaml
+
+    # 🟢 Deploy Frontend Service
+    - name: Deploy Frontend Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/frontend-deployment.yaml
+
+    # ✅ Verify All Deployments
+    - name: Wait for all pods to be ready
+      command: kubectl get pods
+      register: pod_status
+    - debug:
+        msg: "{{ pod_status.stdout_lines }}"

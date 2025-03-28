@@ -20,3 +20,10 @@ spec:
           envFrom:
             - secretRef:
                 name: app-secrets
+          volumeMounts:
+            - mountPath: /var/opt/mssql
+              name: mssql-storage
+      volumes:
+        - name: mssql-storage
+          persistentVolumeClaim:
+            claimName: sqlserver-pvc

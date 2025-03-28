@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
+  namespace: default  # Change to your actual namespace if needed
 data:
   NODE_ENV: "production"
   REACT_APP_BACKEND_URL: "http://backend-service:5001"

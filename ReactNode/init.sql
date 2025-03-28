@@ -1,0 +1,13 @@
+CREATE DATABASE MyAppDB;
+GO
+USE MyAppDB;
+GO
+
+CREATE TABLE Users (
+    ID INT PRIMARY KEY,
+    Name VARCHAR(100)
+);
+GO
+
+INSERT INTO Users (ID, Name) VALUES (1, 'Admin');
+GO
