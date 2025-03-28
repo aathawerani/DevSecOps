@@ -117,7 +117,7 @@ pipeline {
 		failure {
 		    script {
 		        def sonarReportPath = "sonar-report.html"
-		        bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
+		        //bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
         
 		        def buildStatus = currentBuild.result ?: "FAILED"
 		        def failedStageMessage = "Pipeline failed at stage: ${failedStage}"
