@@ -24,6 +24,7 @@
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
+        namespace: default
         src: k8s/sqlserver-pvc.yaml
 
     # 🟢 Deploy SQL Server
