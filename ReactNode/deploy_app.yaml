@@ -1,7 +1,7 @@
 - name: Deploy React-Node App with SQL Server
   hosts: localhost
   vars:
-    kubeconfig_path: "/root/.kube/config"  # Change this to your actual kubeconfig path
+    kubeconfig_path: "/home/aaht14/.kube/config"  # Change this to your actual kubeconfig path
     DB_PASSWORD: "YourStrong!Passw0rd"  # Consider using Ansible Vault for security
   tasks:
 
