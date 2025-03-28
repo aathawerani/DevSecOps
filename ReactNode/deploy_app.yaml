@@ -1,33 +1,32 @@
+---
 - name: Deploy React-Node App with SQL Server
   hosts: localhost
   vars:
-    kubeconfig_path: "/home/aaht14/.kube/config"  # Change this to your actual kubeconfig path
-    DB_PASSWORD: "YourStrong!Passw0rd"  # Consider using Ansible Vault for security
+    kubeconfig_path: "/home/aaht14/.kube/config"
+    DB_PASSWORD: "{{ lookup('env', 'DB_PASSWORD') }}"  # Secure password handling
   tasks:
 
-    # 🟢 Apply Kubernetes ConfigMap
-    - name: Apply Kubernetes ConfigMap (Environment Variables)
+    # ✅ Apply ConfigMap and Secrets
+    - name: Apply Kubernetes ConfigMap
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/configmap.yaml
 
-    # 🟢 Apply Kubernetes Secrets
     - name: Apply Kubernetes Secrets
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/secret.yaml
 
-    # 🟢 Apply Persistent Volume Claim (PVC) for SQL Server
-    - name: Apply SQL Server Persistent Volume Claim (PVC)
+    # ✅ Deploy SQL Server
+    - name: Apply SQL Server PVC
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         namespace: default
         src: k8s/sqlserver-pvc.yaml
 
-    # 🟢 Deploy SQL Server
     - name: Deploy SQL Server
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
@@ -35,41 +34,30 @@
         namespace: default
         src: k8s/sqlserver-deployment.yaml
 
-    # ⏳ Wait for SQL Server Pod to be Ready
-    - name: Wait for SQL Server Pod to be Ready
-      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=180s
+    # ✅ Improved SQL Readiness Check
+    - name: Wait for SQL Server to accept connections
+      shell: |
+        kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ DB_PASSWORD }}" -Q "SELECT 1"
       register: sql_ready
-      retries: 6
+      retries: 10
       delay: 10
       until: sql_ready.rc == 0
-
-    # 🟢 Copy SQL Initialization Script to SQL Server Pod
-    - name: Copy SQL Init Script to SQL Server Pod
-      shell: |
-        kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
-      args:
-        executable: /bin/bash
-
-    # 🟢 Execute SQL Initialization Script in SQL Server
-    - name: Execute SQL Initialization Script
-      command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
       ignore_errors: yes
 
-    # 🟢 Deploy Backend Service
+    # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/backend-deployment.yaml
 
-    # 🟢 Deploy Frontend Service
     - name: Deploy Frontend Service
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/frontend-deployment.yaml
 
-    # ✅ Verify All Deployments
+    # ✅ Verify Deployments
     - name: Wait for all pods to be ready
       command: kubectl get pods
       register: pod_status
