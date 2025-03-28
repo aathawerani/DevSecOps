@@ -1,5 +1,8 @@
 - name: Deploy React-Node App with SQL Server
   hosts: localhost
+  vars:
+    kubeconfig_path: "/root/.kube/config"  # Change this to your actual kubeconfig path
+    DB_PASSWORD: "YourStrong!Passw0rd"  # Consider using Ansible Vault for security
   tasks:
 
     # 🟢 Apply Kubernetes ConfigMap
@@ -31,22 +34,21 @@
         src: k8s/sqlserver-deployment.yaml
 
     # ⏳ Wait for SQL Server Pod to be Ready
-    - name: Wait for SQL Server to be Ready
+    - name: Wait for SQL Server Pod to be Ready
       command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=120s
       register: sql_ready
       retries: 5
       delay: 10
       until: sql_ready.rc == 0
 
-    # 🟢 Copy SQL Initialization Script to the Kubernetes Pod
-    - name: Copy SQL Init Script to Kubernetes Pod
-      copy:
-        src: init.sql
-        dest: /tmp/init.sql
+    # 🟢 Copy SQL Initialization Script to SQL Server Pod
+    - name: Copy SQL Init Script to SQL Server Pod
+      command: kubectl cp init.sql $(kubectl get pods -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql
+      delegate_to: localhost
 
-    # 🟢 Execute SQL Initialization Script
+    # 🟢 Execute SQL Initialization Script in SQL Server
     - name: Execute SQL Initialization Script
-      command: kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
+      command: kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
       ignore_errors: yes
 
     # 🟢 Deploy Backend Service

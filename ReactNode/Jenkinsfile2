@@ -76,9 +76,8 @@ pipeline {
         stage('Deploy to Kubernetes using Ansible') {
             steps {
                 script {
-                    bat """
-                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "ansible-playbook -i /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/inventory.ini /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/deploy_app.yaml"
-                    """
+                    bat "ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost \"ansible-playbook -i /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/inventory.ini /mnt/d/DevOps/jenkins/.jenkins/workspace/DevSecOps3/deploy_app.yaml --extra-vars 'kubeconfig_path=/root/.kube/config DB_PASSWORD=YourStrong!Passw0rd'\""
+
                 }
             }
         }
