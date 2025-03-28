@@ -45,8 +45,10 @@
 
     # 🟢 Copy SQL Initialization Script to SQL Server Pod
     - name: Copy SQL Init Script to SQL Server Pod
-      command: kubectl cp init.sql $(kubectl get pods -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql
-      delegate_to: localhost
+      shell: |
+        kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
+      args:
+        executable: /bin/bash
 
     # 🟢 Execute SQL Initialization Script in SQL Server
     - name: Execute SQL Initialization Script
