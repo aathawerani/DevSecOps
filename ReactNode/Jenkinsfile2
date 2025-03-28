@@ -52,12 +52,12 @@ pipeline {
             parallel {
                 stage('Frontend Scan') {
                     steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"@builtin:html\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"@contrib/html.tpl\" --output frontend-trivy-report.html %FRONTEND_IMAGE%:%IMAGE_TAG%"
                     }
                 }
                 stage('Backend Scan') {
                     steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"@builtin:html\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format template --template \"@contrib/html.tpl\" --output backend-trivy-report.html %BACKEND_IMAGE%:%IMAGE_TAG%"
                     }
                 }
             }
