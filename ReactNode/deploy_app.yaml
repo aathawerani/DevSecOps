@@ -3,7 +3,6 @@
   hosts: localhost
   vars:
     kubeconfig_path: "/home/aaht14/.kube/config"
-    DB_PASSWORD: "{{ lookup('env', 'DB_PASSWORD') }}"  # Secure password handling
   tasks:
 
     # ✅ Apply ConfigMap and Secrets
@@ -35,11 +34,10 @@
         src: k8s/sqlserver-deployment.yaml
 
     # ✅ Improved SQL Readiness Check
-    - name: Wait for SQL Server to accept connections
-      shell: |
-        kubectl exec deploy/sqlserver -- /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ DB_PASSWORD }}" -Q "SELECT 1"
+    - name: Wait for SQL Server Pod to be Ready
+      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=180s
       register: sql_ready
-      retries: 10
+      retries: 6
       delay: 10
       until: sql_ready.rc == 0
       ignore_errors: yes

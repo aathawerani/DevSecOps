@@ -13,6 +13,16 @@ spec:
       labels:
         app: sqlserver
     spec:
+      initContainers:
+        - name: install-mssql-tools
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              apt-get update && apt-get install -y curl apt-transport-https &&
+              curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - &&
+              echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/20.04/prod focal main" > /etc/apt/sources.list.d/mssql-release.list &&
+              apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
       containers:
         - name: sqlserver
           image: mcr.microsoft.com/mssql/server:2022-latest
