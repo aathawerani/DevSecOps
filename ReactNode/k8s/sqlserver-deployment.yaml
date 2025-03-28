@@ -2,7 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sqlserver
-  namespace: default
+  labels:
+    app: sqlserver
 spec:
   replicas: 1
   selector:
@@ -13,33 +14,50 @@ spec:
       labels:
         app: sqlserver
     spec:
+      securityContext:
+        fsGroup: 10001
       initContainers:
-        - name: install-mssql-tools
-          image: ubuntu:20.04
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              apt-get update && apt-get install -y curl apt-transport-https &&
-              curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - &&
-              echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/20.04/prod focal main" > /etc/apt/sources.list.d/mssql-release.list &&
-              apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+      - name: init-sqlserver
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Init SQL Server Container"
+        securityContext:
+          runAsUser: 10001
       containers:
-        - name: sqlserver
-          image: mcr.microsoft.com/mssql/server:2022-latest
-          ports:
-            - containerPort: 1433
-          env:
-            - name: ACCEPT_EULA
-              value: "Y"
-            - name: MSSQL_SA_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: MSSQL_SA_PASSWORD
-          volumeMounts:
-            - mountPath: /var/opt/mssql
-              name: mssql-storage
+      - name: sqlserver
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        ports:
+        - containerPort: 1433
+        envFrom:
+        - configMapRef:
+            name: sqlserver-config
+        - secretRef:
+            name: sqlserver-secret
+        securityContext:
+          runAsUser: 10001
+        volumeMounts:
+        - name: mssql-data
+          mountPath: /var/opt/mssql
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'"
+          initialDelaySeconds: 10
+          periodSeconds: 10
       volumes:
-        - name: mssql-storage
-          persistentVolumeClaim:
-            claimName: sqlserver-pvc
+      - name: mssql-data
+        persistentVolumeClaim:
+          claimName: sqlserver-pvc
