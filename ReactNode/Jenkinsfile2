@@ -29,8 +29,9 @@ pipeline {
                             bat """
                                 docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
                                 docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
-                                //docker images
                             """
+                                //docker images
+                            //"""
                         }
                     }
                 }
@@ -40,8 +41,9 @@ pipeline {
                             bat """
                                 docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
                                 docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
-                                //docker images
                             """
+                                //docker images
+                            //"""
                         }
                     }
                 }
