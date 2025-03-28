@@ -32,6 +32,7 @@
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
+        namespace: default
         src: k8s/sqlserver-deployment.yaml
 
     # ⏳ Wait for SQL Server Pod to be Ready
