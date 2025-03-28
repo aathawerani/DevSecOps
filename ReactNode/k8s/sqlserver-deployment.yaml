@@ -15,7 +15,7 @@ spec:
     spec:
       initContainers:
         - name: install-mssql-tools
-          image: mcr.microsoft.com/mssql/server:2022-latest
+          image: ubuntu:20.04
           command: ["/bin/sh", "-c"]
           args:
             - |
