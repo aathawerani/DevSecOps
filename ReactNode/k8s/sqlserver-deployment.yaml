@@ -17,13 +17,17 @@ spec:
       securityContext:
         fsGroup: 10001
       initContainers:
-      - name: init-sqlserver
-        image: mcr.microsoft.com/mssql/server:2019-latest
+      - name: install-mssql-tools
+        image: ubuntu:20.04
         command:
           - /bin/sh
           - -c
           - |
-            echo "Init SQL Server Container"
+            apt-get update && apt-get install -y curl apt-transport-https gnupg &&
+            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - &&
+            echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/20.04/prod focal main" > /etc/apt/sources.list.d/mssql-release.list &&
+            apt-get update &&
+            ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
         securityContext:
           runAsUser: 10001
       containers:
