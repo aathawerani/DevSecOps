@@ -25,11 +25,13 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat '''
-                            set FRONTEND_IMAGE=my-frontend-app
-                            set IMAGE_TAG=%BUILD_NUMBER%
-                            docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                            for /f "delims=" %%I in ('docker images -f "dangling=true" -q') do docker rmi %%I 2>nul || echo "No old images to clean"
-                        '''
+                                set FRONTEND_IMAGE=my-frontend-app
+                                set IMAGE_TAG=%BUILD_NUMBER%
+                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                            '''
+                            bat '''
+                                for /f "tokens=*" %%i in ('docker images -f "dangling=true" -q') do docker rmi %%i
+                            '''
                         }
                     }
                 }
