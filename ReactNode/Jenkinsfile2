@@ -24,20 +24,20 @@ pipeline {
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {
-                            bat """
+                            bat '''
                                 docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} .
-                                docker rmi $(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
-                            """
+                                docker rmi $$(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
+                            '''
                         }
                     }
                 }
                 stage('Backend Build') {
                     steps {
                         dir('backend') {
-                            bat """
+                            bat '''
                                 docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} .
-                                docker rmi $(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
-                            """
+                                docker rmi $$(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
+                            '''
                         }
                     }
                 }
