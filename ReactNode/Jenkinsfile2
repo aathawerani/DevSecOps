@@ -25,9 +25,11 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat '''
-                                docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} .
-                                docker rmi $$(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
-                            '''
+                            set FRONTEND_IMAGE=my-frontend-app
+                            set IMAGE_TAG=%BUILD_NUMBER%
+                            docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                            for /f "delims=" %%I in ('docker images -f "dangling=true" -q') do docker rmi %%I 2>nul || echo "No old images to clean"
+                        '''
                         }
                     }
                 }
@@ -35,9 +37,11 @@ pipeline {
                     steps {
                         dir('backend') {
                             bat '''
-                                docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} .
-                                docker rmi $$(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
-                            '''
+                            set BACKEND_IMAGE=my-backend-app
+                            set IMAGE_TAG=%BUILD_NUMBER%
+                            docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
+                            for /f "delims=" %%I in ('docker images -f "dangling=true" -q') do docker rmi %%I 2>nul || echo "No old images to clean"
+                        '''
                         }
                     }
                 }
