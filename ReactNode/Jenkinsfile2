@@ -27,11 +27,9 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat """
-                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:%BUILD_NUMBER%
+                                docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} .
+                                docker rmi $(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
                             """
-                                //docker images
-                            //"""
                         }
                     }
                 }
@@ -39,11 +37,9 @@ pipeline {
                     steps {
                         dir('backend') {
                             bat """
-                                docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:%BUILD_NUMBER%
+                                docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} .
+                                docker rmi $(docker images -f "dangling=true" -q) 2>nul || echo "No old images to clean"
                             """
-                                //docker images
-                            //"""
                         }
                     }
                 }
@@ -83,7 +79,6 @@ pipeline {
             }
         }
 
-
         stage('Verify Deployment') {
             steps {
                 script {
@@ -108,6 +103,9 @@ pipeline {
     }
     
     post {
+        always {
+            bat "docker system prune -f --volumes"  // Cleanup unused Docker resources
+        }
         success {
             emailext (
                 to: "${EMAIL_RECIPIENT}",
