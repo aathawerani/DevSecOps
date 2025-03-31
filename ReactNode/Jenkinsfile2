@@ -24,13 +24,12 @@ pipeline {
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {
+                            // Use buildkit and cache mounts
                             bat '''
                                 set FRONTEND_IMAGE=my-frontend-app
                                 set IMAGE_TAG=%BUILD_NUMBER%
-                                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                            '''
-                            bat '''
-                                for /f "tokens=*" %%i in ('docker images -f "dangling=true" -q') do docker rmi %%i
+                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from %FRONTEND_IMAGE%:latest -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:latest
                             '''
                         }
                     }
@@ -39,11 +38,11 @@ pipeline {
                     steps {
                         dir('backend') {
                             bat '''
-                            set BACKEND_IMAGE=my-backend-app
-                            set IMAGE_TAG=%BUILD_NUMBER%
-                            docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% .
-                            for /f "delims=" %%I in ('docker images -f "dangling=true" -q') do docker rmi %%I 2>nul || echo "No old images to clean"
-                        '''
+                                set BACKEND_IMAGE=my-backend-app
+                                set IMAGE_TAG=%BUILD_NUMBER%
+                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from %BACKEND_IMAGE%:latest -t %BACKEND_IMAGE%:%IMAGE_TAG% .
+                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:latest
+                            '''
                         }
                     }
                 }
@@ -107,9 +106,6 @@ pipeline {
     }
     
     post {
-        always {
-            bat "docker system prune -f --volumes"  // Cleanup unused Docker resources
-        }
         success {
             emailext (
                 to: "${EMAIL_RECIPIENT}",
@@ -126,6 +122,7 @@ pipeline {
                 mimeType: 'text/html',
                 attachLog: true
             )
+            bat 'docker system prune -f --volumes'
         }
         failure {
             script {

@@ -1,53 +1,76 @@
 # Build stage
 FROM --platform=linux/amd64 node:18-alpine AS builder
-# Install Python and build dependencies for SQL Server
-RUN apk add --no-cache python3 make g++ unixodbc-dev curl gnupg
-# Add Microsoft repository and install ODBC Driver for SQL Server
+
+# Install build dependencies in a single layer
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++ \
+    unixodbc-dev \
+    curl \
+    gnupg
+
+# Install Microsoft ODBC Driver for SQL Server
 RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
     apk add --allow-untrusted msodbcsql17_17.10.4.1-1_amd64.apk && \
     rm msodbcsql17_17.10.4.1-1_amd64.apk
+
 WORKDIR /usr/src/app
+
+# Install dependencies first for better caching
 COPY package*.json ./
-RUN npm install
+RUN npm ci --omit=dev && \
+    npm cache clean --force
+
 COPY . .
 
 # Production stage
 FROM --platform=linux/amd64 node:18-alpine
+
+# Install runtime dependencies in a single layer
 RUN apk add --no-cache \
     python3 \
     curl \
-    unixodbc-dev \
-    && rm -rf /var/cache/apk/*
-# Add Microsoft ODBC Driver
-RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
+    unixodbc-dev && \
+    # Install Microsoft ODBC Driver
+    curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
     apk add --allow-untrusted msodbcsql17_17.10.4.1-1_amd64.apk && \
-    rm msodbcsql17_17.10.4.1-1_amd64.apk
+    rm msodbcsql17_17.10.4.1-1_amd64.apk && \
+    # Create non-root user and directories
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    mkdir -p /usr/src/app && \
+    chown -R appuser:appgroup /usr/src/app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /usr/src/app
+
+# Copy only what's needed from builder
 COPY --from=builder --chown=appuser:appgroup /usr/src/app/node_modules ./node_modules
 COPY --chown=appuser:appgroup . .
 
+# Security and configuration
 ENV NODE_ENV=production \
     PORT=5001 \
-    NPM_CONFIG_LOGLEVEL=error
-
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health || exit 1
-
-ENV SECURITY_HEADERS="true" \
+    NPM_CONFIG_LOGLEVEL=error \
+    SECURITY_HEADERS="true" \
     STRICT_TRANSPORT_SECURITY="max-age=31536000; includeSubDomains" \
     X_FRAME_OPTIONS="DENY" \
     X_CONTENT_TYPE_OPTIONS="nosniff" \
     REFERRER_POLICY="strict-origin-when-cross-origin" \
     X_PERMITTED_CROSS_DOMAIN_POLICIES="none" \
-    X_XSS_PROTECTION="1; mode=block"
+    X_XSS_PROTECTION="1; mode=block" \
+    NODE_OPTIONS="--enable-source-maps --max-old-space-size=2048"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Entrypoint configuration
+COPY --chown=appuser:appgroup docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER appuser
 EXPOSE 5001
-
-COPY --chown=appuser:appgroup docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
