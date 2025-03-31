@@ -24,28 +24,28 @@ pipeline {
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {
-                            bat '''
+                            bat """
                                 set FRONTEND_IMAGE=my-frontend-app
                                 set IMAGE_TAG=%BUILD_NUMBER%
                                 docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
                                 docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:latest
-                            '''
-                            // Clean up dangling images
-                            bat 'for /f "tokens=*" %%i in (''docker images -f "dangling=true" -q'') do docker rmi %%i'
+                            """
+                            // Clean up dangling images - properly escaped
+                            bat 'for /f "tokens=*" %%%%i in (\'docker images -f "dangling=true" -q\') do docker rmi %%%%i'
                         }
                     }
                 }
                 stage('Backend Build') {
                     steps {
                         dir('backend') {
-                            bat '''
+                            bat """
                                 set BACKEND_IMAGE=my-backend-app
                                 set IMAGE_TAG=%BUILD_NUMBER%
                                 docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t %BACKEND_IMAGE%:%IMAGE_TAG% .
                                 docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:latest
-                            '''
-                            // Clean up dangling images
-                            bat 'for /f "delims=" %%I in (''docker images -f "dangling=true" -q'') do docker rmi %%I 2>nul || echo "No old images to clean"'
+                            """
+                            // Clean up dangling images - properly escaped
+                            bat 'for /f "delims=" %%%%I in (\'docker images -f "dangling=true" -q\') do docker rmi %%%%I 2>nul || echo "No old images to clean"'
                         }
                     }
                 }
