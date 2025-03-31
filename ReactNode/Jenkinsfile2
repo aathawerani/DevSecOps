@@ -31,7 +31,7 @@ pipeline {
                                 docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:latest
                             """
                             // Clean up dangling images - properly escaped
-                            bat 'for /f "tokens=*" %%%%i in (\'docker images -f "dangling=true" -q\') do docker rmi %%%%i'
+                            bat 'for /f "delims=" %%%%I in (\'docker images -f "dangling=true" -q\') do docker rmi %%%%I 2>nul || echo "No old images to clean"'
                         }
                     }
                 }
