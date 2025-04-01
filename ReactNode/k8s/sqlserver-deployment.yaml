@@ -37,7 +37,7 @@ spec:
         - containerPort: 1433
         envFrom:
         - configMapRef:
-            name: sqlserver-config
+            name: sqlserver-configmap
         - secretRef:
             name: sqlserver-secret
         securityContext:
