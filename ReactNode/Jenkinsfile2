@@ -106,9 +106,8 @@ pipeline {
     
     post {
         always {
+            bat 'docker image prune -f'
             bat "docker system prune -f --volumes"  // Cleanup unused Docker resources
-            // Clean up dangling images - properly escaped
-            powershell 'docker rmi $(docker images -f "dangling=true" -q) --force'
         }
         success {
             emailext (
