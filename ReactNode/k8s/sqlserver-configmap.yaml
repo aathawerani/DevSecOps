@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sqlserver-config
+data:
+  MSSQL_PID: "Developer"  # Or "Express", "Standard", "Enterprise" depending on your license
+  ACCEPT_EULA: "Y"        # Must be set to "Y" to accept the End User Licensing Agreement
+  MSSQL_LCID: "1033"      # Language ID (1033 for US English)
+  MSSQL_COLLATION: "SQL_Latin1_General_CP1_CI_AS"  # Default collation
+  MSSQL_MEMORY_LIMIT_MB: "2048"  # Memory limit in MB
+  MSSQL_TCP_PORT: "1433"   # Default SQL Server port
+  MSSQL_AGENT_ENABLED: "true"  # Enable SQL Server Agent
