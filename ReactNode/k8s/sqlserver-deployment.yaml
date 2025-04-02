@@ -16,23 +16,9 @@ spec:
     spec:
       securityContext:
         fsGroup: 10001
-      initContainers:
-      - name: install-mssql-tools
-        image: ubuntu:20.04
-        command:
-          - /bin/sh
-          - -c
-          - chmod -R a+rwx /var/lib/apt/lists && apt-get update && apt-get install -y curl apt-transport-https gnupg &&
-            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - &&
-            echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/20.04/prod focal main" > /etc/apt/sources.list.d/mssql-release.list &&
-            apt-get update &&
-            ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
       containers:
       - name: sqlserver
-        image: mcr.microsoft.com/mssql/server:2019-latest
+        image: mcr.microsoft.com/mssql/server:2019-CU16-ubuntu-20.04  # Pinned version
         ports:
         - containerPort: 1433
         envFrom:
@@ -45,20 +31,39 @@ spec:
         volumeMounts:
         - name: mssql-data
           mountPath: /var/opt/mssql
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
         livenessProbe:
           exec:
             command:
-              - /bin/sh
-              - -c
-              - "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'"
+              - /opt/mssql-tools/bin/sqlcmd
+              - -S
+              - localhost
+              - -U
+              - sa
+              - -P
+              - "$(SA_PASSWORD)"
+              - -Q
+              - "SELECT 1"
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           exec:
             command:
-              - /bin/sh
-              - -c
-              - "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'"
+              - /opt/mssql-tools/bin/sqlcmd
+              - -S
+              - localhost
+              - -U
+              - sa
+              - -P
+              - "$(SA_PASSWORD)"
+              - -Q
+              - "SELECT 1"
           initialDelaySeconds: 10
           periodSeconds: 10
       volumes:
