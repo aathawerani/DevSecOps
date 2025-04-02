@@ -18,6 +18,19 @@
         state: present
         src: k8s/secret.yaml
 
+    # ✅ Apply ConfigMap and Secrets
+    - name: Apply SQL Server ConfigMap
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/sqlserver-configmap.yaml
+
+    - name: Apply SQL Server Secrets
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/sqlserver-secret.yaml
+
     # ✅ Deploy SQL Server
     - name: Apply SQL Server PVC
       kubernetes.core.k8s:
@@ -37,8 +50,8 @@
     - name: Wait for SQL Server Pod to be Ready
       command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=180s
       register: sql_ready
-      retries: 6
-      delay: 10
+      retries: 3
+      delay: 5
       until: sql_ready.rc == 0
       ignore_errors: yes
 
