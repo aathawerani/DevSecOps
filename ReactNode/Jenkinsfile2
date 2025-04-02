@@ -101,10 +101,10 @@ pipeline {
     }
     
     post {
-        always {
+        /*always {
             bat 'docker image prune -f'
             bat "docker system prune -f --volumes"  // Cleanup unused Docker resources
-        }
+        }*/
         success {
             emailext (
                 to: "${EMAIL_RECIPIENT}",
