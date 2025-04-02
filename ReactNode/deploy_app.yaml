@@ -5,6 +5,23 @@
     kubeconfig_path: "/home/aaht14/.kube/config"
   tasks:
 
+    # Clean up previous SQL Server deployment first
+    - name: Delete old SQL Server deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: Deployment
+        name: sqlserver
+        namespace: default
+        state: absent
+      ignore_errors: yes
+      register: deletion_result
+      changed_when: "'deployment.apps sqlserver deleted' in deletion_result.msg"
+
+    - name: Wait for old pods to terminate
+      command: kubectl wait --for=delete pod -l app=sqlserver --timeout=60s
+      when: deletion_result is changed
+      ignore_errors: yes
+
     # ✅ Apply ConfigMap and Secrets
     - name: Apply Kubernetes ConfigMap
       kubernetes.core.k8s:
@@ -18,7 +35,7 @@
         state: present
         src: k8s/secret.yaml
 
-    # ✅ Apply ConfigMap and Secrets
+    # ✅ Apply SQL Server Configs
     - name: Apply SQL Server ConfigMap
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
@@ -48,7 +65,7 @@
 
     # ✅ Improved SQL Readiness Check
     - name: Wait for SQL Server Pod to be Ready
-      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=180s
+      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=20s
       register: sql_ready
       retries: 3
       delay: 5
