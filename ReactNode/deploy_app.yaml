@@ -3,6 +3,7 @@
   hosts: localhost
   vars:
     kubeconfig_path: "/home/aaht14/.kube/config"
+    sql_timeout: 180  # Increased timeout to 3 minutes
   tasks:
 
     # Clean up previous SQL Server deployment first
@@ -14,15 +15,15 @@
         namespace: default
         state: absent
       ignore_errors: yes
-      register: deletion_result
-      changed_when: "'deployment.apps sqlserver deleted' in deletion_result.msg"
+      changed_when: false  # Don't fail if not exists
 
     - name: Wait for old pods to terminate
       command: kubectl wait --for=delete pod -l app=sqlserver --timeout=60s
-      when: deletion_result is changed
       ignore_errors: yes
+      register: pod_termination
+      changed_when: "'error: no matching resources found' not in pod_termination.stderr"
 
-    # ✅ Apply ConfigMap and Secrets
+    # ✅ Apply Configurations
     - name: Apply Kubernetes ConfigMap
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
@@ -35,7 +36,6 @@
         state: present
         src: k8s/secret.yaml
 
-    # ✅ Apply SQL Server Configs
     - name: Apply SQL Server ConfigMap
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
@@ -63,13 +63,29 @@
         namespace: default
         src: k8s/sqlserver-deployment.yaml
 
-    # ✅ Improved SQL Readiness Check
+    # ✅ Enhanced SQL Server Verification
+    - name: Check SQL Server initialization logs
+      command: kubectl logs -l app=sqlserver --tail=20
+      register: sql_logs
+      until: "'Setup step is COMPLETED' in sql_logs.stdout"
+      retries: 12
+      delay: 10
+      ignore_errors: yes
+
     - name: Wait for SQL Server Pod to be Ready
-      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout=20s
+      command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout={{ sql_timeout }}s
       register: sql_ready
-      retries: 3
-      delay: 5
+      retries: 2
+      delay: 10
       until: sql_ready.rc == 0
+      ignore_errors: yes
+
+    - name: Verify SQL Server connectivity
+      command: >
+        kubectl exec -it $(kubectl get pod -l app=sqlserver -o jsonpath='{.items[0].metadata.name}') 
+        -- /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$(kubectl get secret sqlserver-secret -o jsonpath='{.data.SA_PASSWORD}' | base64 -d)" -Q "SELECT @@VERSION"
+      register: sql_test
+      when: sql_ready.rc == 0
       ignore_errors: yes
 
     # ✅ Deploy Backend and Frontend Services
@@ -78,6 +94,7 @@
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/backend-deployment.yaml
+      when: sql_ready.rc == 0  # Only deploy backend if SQL is ready
 
     - name: Deploy Frontend Service
       kubernetes.core.k8s:
@@ -85,9 +102,17 @@
         state: present
         src: k8s/frontend-deployment.yaml
 
-    # ✅ Verify Deployments
-    - name: Wait for all pods to be ready
-      command: kubectl get pods
+    # ✅ Final Verification
+    - name: Get all pod statuses
+      command: kubectl get pods -o wide
       register: pod_status
+      changed_when: false
+
     - debug:
-        msg: "{{ pod_status.stdout_lines }}"
+        msg: "SQL Server deployment status"
+        var: sql_ready
+        verbosity: 1
+
+    - debug:
+        msg: "Current pod status:"
+        var: pod_status.stdout_lines

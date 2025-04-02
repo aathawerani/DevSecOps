@@ -16,9 +16,16 @@ spec:
     spec:
       securityContext:
         fsGroup: 10001
+      initContainers:
+      - name: volume-permission-fix
+        image: mcr.microsoft.com/mssql/server:2019-CU16-ubuntu-20.04
+        command: ["bash", "-c", "chown -R 10001:10001 /var/opt/mssql"]
+        volumeMounts:
+        - name: mssql-data
+          mountPath: /var/opt/mssql
       containers:
       - name: sqlserver
-        image: mcr.microsoft.com/mssql/server:2019-CU16-ubuntu-20.04  # Pinned version
+        image: mcr.microsoft.com/mssql/server:2019-CU16-ubuntu-20.04
         ports:
         - containerPort: 1433
         envFrom:
@@ -28,6 +35,7 @@ spec:
             name: sqlserver-secret
         securityContext:
           runAsUser: 10001
+          runAsGroup: 10001
         volumeMounts:
         - name: mssql-data
           mountPath: /var/opt/mssql
@@ -50,22 +58,15 @@ spec:
               - "$(SA_PASSWORD)"
               - -Q
               - "SELECT 1"
+          initialDelaySeconds: 120  # Wait longer before first check
+          periodSeconds: 20
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 1433
           initialDelaySeconds: 30
           periodSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-              - /opt/mssql-tools/bin/sqlcmd
-              - -S
-              - localhost
-              - -U
-              - sa
-              - -P
-              - "$(SA_PASSWORD)"
-              - -Q
-              - "SELECT 1"
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          failureThreshold: 3
       volumes:
       - name: mssql-data
         persistentVolumeClaim:
