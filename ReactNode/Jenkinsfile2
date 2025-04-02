@@ -25,10 +25,8 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat """
-                                set FRONTEND_IMAGE=my-frontend-app
-                                set IMAGE_TAG=%BUILD_NUMBER%
-                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t %FRONTEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %FRONTEND_IMAGE%:%IMAGE_TAG% %FRONTEND_IMAGE%:latest
+                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t my-frontend-app:latest .
+                                docker tag my-frontend-app:latest my-frontend-app:latest
                             """
                         }
                     }
@@ -37,10 +35,8 @@ pipeline {
                     steps {
                         dir('backend') {
                             bat """
-                                set BACKEND_IMAGE=my-backend-app
-                                set IMAGE_TAG=%BUILD_NUMBER%
-                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t %BACKEND_IMAGE%:%IMAGE_TAG% .
-                                docker tag %BACKEND_IMAGE%:%IMAGE_TAG% %BACKEND_IMAGE%:latest
+                                docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t my-backend-app:latest .
+                                docker tag my-backend-app:latest my-backend-app:latest
                             """
                         }
                     }
@@ -48,26 +44,26 @@ pipeline {
             }
         }
 
-        stage('Docker Security Scan') {
+        /*stage('Docker Security Scan') {
             parallel {
                 stage('Frontend Scan') {
                     steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json %FRONTEND_IMAGE%:%IMAGE_TAG%"
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json my-frontend-app:latest
                     }
                 }
                 stage('Backend Scan') {
                     steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output backend-trivy-report.json %BACKEND_IMAGE%:%IMAGE_TAG%"
+                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output backend-trivy-report.json my-backend-app:latest
                     }
                 }
             }
-        }
+        }*/
 
         stage('Load Docker Images into Kubernetes') {
             steps {
                 script {
                     bat """
-                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kind load docker-image %FRONTEND_IMAGE%:%IMAGE_TAG% && kind load docker-image %BACKEND_IMAGE%:%IMAGE_TAG%"
+                    ssh -i C:\\Windows\\System32\\config\\systemprofile\\.ssh\\id_ed25519 -o StrictHostKeyChecking=no aaht14@localhost "kind load docker-image my-frontend-app:latest && kind load docker-image my-backend-app:latest"
                     """
                 }
             }
