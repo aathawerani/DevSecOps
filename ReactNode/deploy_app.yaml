@@ -5,7 +5,6 @@
     kubeconfig_path: "/home/aaht14/.kube/config"
     sql_timeout: 30  # Increased timeout to 3 minutes
     sql_server_port: 1433  # Default SQL Server port
-    sa_password: "your_sa_password"  # Should come from a secure source like vault
     init_script_path: "init.sql"  # Path to your init.sql script
   tasks:
 
@@ -108,8 +107,18 @@
  
      # 🟢 Execute SQL Initialization Script in SQL Server
     - name: Execute SQL Initialization Script
-      command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
-      ignore_errors: yes
+      command: >
+        kubectl exec deploy/sqlserver -c sqlserver --
+        /opt/mssql-tools/bin/sqlcmd
+        -S sqlserver
+        -U sa
+        -P "{{ sql_secret.resources[0].stringData.SA_PASSWORD }}"
+        -i /tmp/init.sql
+      no_log: true  # Prevents password from being logged
+      register: sql_init_result
+      retries: 3
+      delay: 10
+      until: sql_init_result.rc == 0
 
     # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
