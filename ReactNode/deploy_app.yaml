@@ -101,16 +101,16 @@
       ignore_errors: yes
 
     - name: Copy SQL Init Script to SQL Server Pod
-       shell: |
-         kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
-       args:
-         executable: /bin/bash
+      shell: |
+        kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
+      args:
+        executable: /bin/bash
  
      # 🟢 Execute SQL Initialization Script in SQL Server
-     - name: Execute SQL Initialization Script
-       command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
-       ignore_errors: yes
-       
+    - name: Execute SQL Initialization Script
+      command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
+      ignore_errors: yes
+
     # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
       kubernetes.core.k8s:
