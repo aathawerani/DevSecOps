@@ -23,6 +23,33 @@
       register: pod_termination
       changed_when: "'error: no matching resources found' not in pod_termination.stderr"
 
+    - name: Delete old Backend deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: Deployment
+        name: backend
+        namespace: default
+        state: absent
+      ignore_errors: yes
+
+    - name: Wait for old Backend pods to terminate
+      command: kubectl wait --for=delete pod -l app=backend --timeout=60s
+      ignore_errors: yes
+
+
+    - name: Delete old Frontend deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: Deployment
+        name: frontend
+        namespace: default
+        state: absent
+      ignore_errors: yes
+
+    - name: Wait for old Frontend pods to terminate
+      command: kubectl wait --for=delete pod -l app=frontend --timeout=60s
+      ignore_errors: yes
+
     # ✅ Apply Configurations
     - name: Apply Kubernetes ConfigMap
       kubernetes.core.k8s:
@@ -85,7 +112,8 @@
         src: k8s/frontend-deployment.yaml
 
     # ✅ Final Verification
-    - name: Get all pod statuses
-      command: kubectl get pods -o wide
-      register: pod_status
-      changed_when: false
+    - name: Wait for all pods to be ready
+       command: kubectl get pods
+       register: pod_status
+     - debug:
+         msg: "{{ pod_status.stdout_lines }}"
