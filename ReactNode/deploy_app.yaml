@@ -112,7 +112,7 @@
         /opt/mssql-tools/bin/sqlcmd
         -S sqlserver
         -U sa
-        -P "{{ sql_secret.resources[0].stringData.SA_PASSWORD }}"
+        -P $(kubectl get secret sqlserver-secret -o jsonpath='{.data.SA_PASSWORD}' | base64 --decode)
         -i /tmp/init.sql
       register: sql_init_result
       retries: 3
