@@ -4,6 +4,9 @@
   vars:
     kubeconfig_path: "/home/aaht14/.kube/config"
     sql_timeout: 30  # Increased timeout to 3 minutes
+    sql_server_port: 1433  # Default SQL Server port
+    sa_password: "your_sa_password"  # Should come from a secure source like vault
+    init_script_path: "path/to/your/init.sql"  # Path to your init.sql script
   tasks:
 
     # Clean up previous SQL Server deployment first
@@ -35,7 +38,6 @@
     - name: Wait for old Backend pods to terminate
       command: kubectl wait --for=delete pod -l app=backend --timeout=60s
       ignore_errors: yes
-
 
     - name: Delete old Frontend deployment
       kubernetes.core.k8s:
@@ -98,6 +100,31 @@
       until: sql_ready.rc == 0
       ignore_errors: yes
 
+    - name: Execute initialization script on SQL Server
+      block:
+        - name: Copy init.sql to a temporary location on the SQL Server pod
+          command: kubectl cp "{{ init_script_path }}" $(kubectl get pod -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql
+          register: copy_result
+          retries: 3
+          delay: 5
+          until: copy_result.rc == 0
+
+        - name: Run init.sql script using sqlcmd
+          command: >
+            kubectl exec $(kubectl get pod -l app=sqlserver -o jsonpath='{.items[0].metadata.name}') --
+            /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -i /tmp/init.sql
+          register: sql_result
+          retries: 3
+          delay: 5
+          until: sql_result.rc == 0
+          no_log: true  # Prevents password from being logged
+
+        - name: Verify script execution
+          debug:
+            msg: "Database initialization completed successfully"
+          when: sql_result.rc == 0
+      when: sql_ready.rc == 0  # Only execute if SQL Server is ready
+
     # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
       kubernetes.core.k8s:
@@ -113,7 +140,7 @@
 
     # ✅ Final Verification
     - name: Wait for all pods to be ready
-       command: kubectl get pods
-       register: pod_status
-     - debug:
-         msg: "{{ pod_status.stdout_lines }}"
+      command: kubectl get pods
+      register: pod_status
+    - debug:
+        msg: "{{ pod_status.stdout_lines }}"
