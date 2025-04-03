@@ -114,7 +114,6 @@
         -U sa
         -P "{{ sql_secret.resources[0].stringData.SA_PASSWORD }}"
         -i /tmp/init.sql
-      no_log: true  # Prevents password from being logged
       register: sql_init_result
       retries: 3
       delay: 10
