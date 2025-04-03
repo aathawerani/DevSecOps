@@ -100,31 +100,17 @@
       until: sql_ready.rc == 0
       ignore_errors: yes
 
-    - name: Execute initialization script on SQL Server
-      block:
-        - name: Copy init.sql to a temporary location on the SQL Server pod
-          command: kubectl cp "{{ init_script_path }}" $(kubectl get pod -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql
-          register: copy_result
-          retries: 3
-          delay: 5
-          until: copy_result.rc == 0
-
-        - name: Run init.sql script using sqlcmd
-          command: >
-            kubectl exec $(kubectl get pod -l app=sqlserver -o jsonpath='{.items[0].metadata.name}') --
-            /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -i /tmp/init.sql
-          register: sql_result
-          retries: 3
-          delay: 5
-          until: sql_result.rc == 0
-          no_log: true  # Prevents password from being logged
-
-        - name: Verify script execution
-          debug:
-            msg: "Database initialization completed successfully"
-          when: sql_result.rc == 0
-      when: sql_ready.rc == 0  # Only execute if SQL Server is ready
-
+    - name: Copy SQL Init Script to SQL Server Pod
+       shell: |
+         kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
+       args:
+         executable: /bin/bash
+ 
+     # 🟢 Execute SQL Initialization Script in SQL Server
+     - name: Execute SQL Initialization Script
+       command: kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "{{ DB_PASSWORD }}" -i /tmp/init.sql
+       ignore_errors: yes
+       
     # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
       kubernetes.core.k8s:
