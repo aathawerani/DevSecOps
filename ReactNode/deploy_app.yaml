@@ -6,7 +6,7 @@
     sql_timeout: 30  # Increased timeout to 3 minutes
     sql_server_port: 1433  # Default SQL Server port
     sa_password: "your_sa_password"  # Should come from a secure source like vault
-    init_script_path: "path/to/your/init.sql"  # Path to your init.sql script
+    init_script_path: "init.sql"  # Path to your init.sql script
   tasks:
 
     # Clean up previous SQL Server deployment first
