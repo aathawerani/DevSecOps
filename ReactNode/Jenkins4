@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'RESOURCE_GROUP', defaultValue: '', description: 'Resource group to destroy')
+        string(name: 'BUILD_NUMBER', defaultValue: '', description: 'Original build number')
+    }
+    
+    environment {
+        AZURE_CREDENTIALS_ID = 'azure-service-principal'
+    }
+    
+    stages {
+        stage('Verify Parameters') {
+            steps {
+                script {
+                    if (!params.RESOURCE_GROUP?.trim()) {
+                        error("Resource Group parameter is required")
+                    }
+                }
+            }
+        }
+        
+        stage('Azure Login') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal \
+                            -u ${AZURE_CLIENT_ID} \
+                            -p ${AZURE_CLIENT_SECRET} \
+                            --tenant ${AZURE_TENANT_ID}
+                    """
+                }
+            }
+        }
+        
+        stage('Terraform Destroy') {
+            steps {
+                dir('terraform') {
+                    bat """
+                        terraform init
+                        terraform destroy -auto-approve \
+                            -var="resource_group_name=${params.RESOURCE_GROUP}"
+                    """
+                }
+            }
+        }
+        
+        stage('Verify Destruction') {
+            steps {
+                script {
+                    def rgExists = bat(
+                        script: "az group exists --name ${params.RESOURCE_GROUP}",
+                        returnStdout: true
+                    ).trim()
+                    
+                    if (rgExists == "true") {
+                        error("Resource group still exists after destruction!")
+                    } else {
+                        echo "Resource group ${params.RESOURCE_GROUP} successfully deleted"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            emailext body: """
+                Resource destruction ${currentBuild.currentResult} for Build ${params.BUILD_NUMBER}
+                
+                Resource Group: ${params.RESOURCE_GROUP}
+                
+                Jenkins build: ${BUILD_URL}
+            """,
+            subject: "Destruction ${currentBuild.currentResult}: PaymentGateway ${params.BUILD_NUMBER}",
+            to: "athawerani@gmail.com"
+        }
+    }
+}

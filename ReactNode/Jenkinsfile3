@@ -1,0 +1,165 @@
+pipeline {
+    agent any
+    environment {
+        // Git Configuration
+        GIT_CREDENTIALS_ID = 'github-credentials'
+        GITHUB_REPO = 'aathawerani/PaymentGateway'
+        GITHUB_TOKEN = credentials('github-token')
+        
+        // Azure Configuration
+        AZURE_CREDENTIALS_ID = 'azure-service-principal'
+        AZURE_SUBSCRIPTION = 'your-subscription-id'
+        AZURE_REGISTRY = 'yourregistryname'
+        LOCATION = 'eastus'
+        
+        // Resource Naming
+        RESOURCE_GROUP = "pg-demo-${BUILD_NUMBER}"
+        SQL_SERVER_NAME = "sql-server-${BUILD_NUMBER}"
+        SQL_DB_NAME = "paymentgateway"
+        SQL_ADMIN_USER = "sqladmin"
+        
+        // Image Configuration
+        FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
+        BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    failedStage = "Checkout"
+                }
+                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
+            }
+        }
+        
+        stage('Azure Login') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal \
+                            -u ${AZURE_CLIENT_ID} \
+                            -p ${AZURE_CLIENT_SECRET} \
+                            --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                    """
+                }
+            }
+        }
+        
+        stage('Build Docker Images') {
+            parallel {
+                stage('Frontend Build') {
+                    steps {
+                        dir('frontend') {
+                            bat """
+                                docker build --platform linux/amd64 \
+                                    -t ${FRONTEND_IMAGE}:${IMAGE_TAG} .
+                            """
+                        }
+                    }
+                }
+                stage('Backend Build') {
+                    steps {
+                        dir('backend') {
+                            bat """
+                                docker build --platform linux/amd64 \
+                                    -t ${BACKEND_IMAGE}:${IMAGE_TAG} .
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Push to Azure Container Registry') {
+            steps {
+                bat """
+                    az acr login --name ${AZURE_REGISTRY}
+                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                """
+            }
+        }
+        
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID), string(credentialsId: 'sql-admin-password', variable: 'SQL_ADMIN_PASSWORD')]) {
+                        bat """
+                            terraform init -backend-config="key=${RESOURCE_GROUP}.tfstate"
+                            terraform apply -auto-approve \
+                                -var="resource_group_name=${RESOURCE_GROUP}" \
+                                -var="location=${LOCATION}" \
+                                -var="sql_server_name=${SQL_SERVER_NAME}" \
+                                -var="sql_db_name=${SQL_DB_NAME}" \
+                                -var="sql_admin_username=${SQL_ADMIN_USER}" \
+                                -var="sql_admin_password=${SQL_ADMIN_PASSWORD}" \
+                                -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" \
+                                -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}"
+                        """
+                    }
+                }
+                script {
+                    env.DEPLOYMENT_INFO = """
+                    Azure Resource Group: ${RESOURCE_GROUP}
+                    SQL Server: ${SQL_SERVER_NAME}.database.windows.net
+                    Database: ${SQL_DB_NAME}
+                    Admin User: ${SQL_ADMIN_USER}
+                    
+                    To destroy these resources, use the 'Destroy Resources' job in Jenkins
+                    or run manually:
+                    terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
+                    """
+                }
+            }
+        }
+        
+        stage('Get Endpoints') {
+            steps {
+                dir('terraform') {
+                    script {
+                        env.APP_URL = bat(
+                            script: 'terraform output -raw frontend_url', 
+                            returnStdout: true
+                        ).trim()
+                        env.SQL_CONNECTION_STRING = bat(
+                            script: 'terraform output -raw sql_connection_string', 
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "Application URL: ${env.APP_URL}"
+                        echo "SQL Connection String: ${env.SQL_CONNECTION_STRING}"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            emailext body: """
+                Deployment ${currentBuild.currentResult} for Build ${BUILD_NUMBER}
+                
+                Application URL: ${env.APP_URL}
+                SQL Server: ${SQL_SERVER_NAME}.database.windows.net
+                
+                ${env.DEPLOYMENT_INFO}
+                
+                Jenkins build: ${BUILD_URL}
+            """,
+            subject: "Deployment ${currentBuild.currentResult}: PaymentGateway ${BUILD_NUMBER}",
+            to: "athawerani@gmail.com"
+            
+            // Save destruction script as artifact
+            writeFile file: "destroy-${BUILD_NUMBER}.sh", 
+                     text: """
+                     #!/bin/bash
+                     cd terraform
+                     terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
+                     """
+            archiveArtifacts artifacts: "destroy-${BUILD_NUMBER}.sh"
+        }
+    }
+}
