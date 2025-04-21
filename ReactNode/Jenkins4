@@ -1,7 +1,7 @@
 pipeline {
     agent any
     parameters {
-        string(name: 'RESOURCE_GROUP', defaultValue: '', description: 'Resource group to destroy')
+        string(name: 'RESOURCE_GROUP', defaultValue: 'pg-demo', description: 'Resource group to destroy')
         string(name: 'BUILD_NUMBER', defaultValue: '', description: 'Original build number')
     }
     

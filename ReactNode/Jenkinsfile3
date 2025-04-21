@@ -8,20 +8,20 @@ pipeline {
         
         // Azure Configuration
         AZURE_CREDENTIALS_ID = 'azure-service-principal'
-        AZURE_SUBSCRIPTION = 'your-subscription-id'
-        AZURE_REGISTRY = 'yourregistryname'
+        AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
+        AZURE_REGISTRY = 'devsecops'
         LOCATION = 'eastus'
         
         // Resource Naming
-        RESOURCE_GROUP = "pg-demo-${BUILD_NUMBER}"
-        SQL_SERVER_NAME = "sql-server-${BUILD_NUMBER}"
+        RESOURCE_GROUP = "pg-demo"
+        SQL_SERVER_NAME = "sql-server-pg"
         SQL_DB_NAME = "paymentgateway"
-        SQL_ADMIN_USER = "sqladmin"
+        SQL_ADMIN_USER = "sa"
         
         // Image Configuration
         FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
         BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG = "latest"
     }
     
     stages {
