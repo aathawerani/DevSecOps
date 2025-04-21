@@ -20,6 +20,7 @@ provider "kubernetes" {
 
 variable "resource_group_name" {
   description = "Name of the resource group"
+  default     = "pg-demo"
 }
 
 variable "location" {
@@ -29,7 +30,7 @@ variable "location" {
 
 variable "prefix" {
   description = "Prefix for resource names"
-  default     = "pgdemo"
+  default     = "pg-demo"
 }
 
 resource "azurerm_resource_group" "demo" {
