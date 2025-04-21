@@ -202,16 +202,7 @@ pipeline {
                 Jenkins build: ${BUILD_URL}
             """,
             subject: "Deployment ${currentBuild.currentResult}: PaymentGateway ${BUILD_NUMBER}",
-            to: "athawerani@gmail.com"
-            
-            // Save destruction script as artifact
-            writeFile file: "destroy-${BUILD_NUMBER}.sh", 
-                     text: """
-                     #!/bin/bash
-                     cd terraform
-                     D:\\DevOps\\terraform\\terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
-                     """
-            archiveArtifacts artifacts: "destroy-${BUILD_NUMBER}.sh"
+            to: "athawerani@gmail.com"            
         }
     }
 }
