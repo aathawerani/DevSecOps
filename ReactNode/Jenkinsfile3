@@ -113,6 +113,36 @@ pipeline {
             }
         }
 
+        stage('Create Terraform Backend') {
+            steps {
+                script {
+                    failedStage = "Create Terraform Backend"
+                }
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
+
+                        REM Create storage account if not exists
+                        az storage account show --name ${RESOURCE_GROUP}storage --resource-group ${RESOURCE_GROUP} || ^
+                        az storage account create ^
+                            --name ${RESOURCE_GROUP}storage ^
+                            --resource-group ${RESOURCE_GROUP} ^
+                            --sku Standard_LRS ^
+                            --location ${LOCATION}
+
+                        REM Create container if not exists
+                        az storage container create ^
+                            --name tfstate ^
+                            --account-name ${RESOURCE_GROUP}storage
+                    """
+                }
+            }
+        }
+
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {

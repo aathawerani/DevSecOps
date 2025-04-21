@@ -9,6 +9,13 @@ provider "kubernetes" {
   cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate)
 }
 
+backend "azurerm" {
+  resource_group_name  = "pg-demo"
+  storage_account_name = "pgdemostorage"
+  container_name       = "tfstate"
+  key                  = "pg-demo.tfstate"
+}
+
 variable "resource_group_name" {
   description = "Name of the resource group"
 }
@@ -21,23 +28,6 @@ variable "location" {
 variable "prefix" {
   description = "Prefix for resource names"
   default     = "pgdemo"
-}
-
-variable "sql_admin_username" {
-  description = "SQL Server administrator username"
-}
-
-variable "sql_admin_password" {
-  description = "SQL Server administrator password"
-  sensitive   = true
-}
-
-variable "frontend_image" {
-  description = "Frontend container image"
-}
-
-variable "backend_image" {
-  description = "Backend container image"
 }
 
 resource "azurerm_resource_group" "demo" {
