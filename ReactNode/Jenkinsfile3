@@ -14,6 +14,7 @@ pipeline {
         
         // Resource Naming
         RESOURCE_GROUP = "pg-demo"
+        STORAGE_ACCOUNT = "pgdemostorage"
         SQL_SERVER_NAME = "sql-server-pg"
         SQL_DB_NAME = "paymentgateway"
         SQL_ADMIN_USER = "sa"
@@ -34,20 +35,35 @@ pipeline {
             }
         }
         
-        stage('Azure Login') {
+        stage('Azure Setup') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """
-                        az login --service-principal \
-                            -u ${AZURE_CLIENT_ID} \
-                            -p ${AZURE_CLIENT_SECRET} \
+                        az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
                             --tenant ${AZURE_TENANT_ID}
                         az account set --subscription ${AZURE_SUBSCRIPTION}
+                        
+                        REM Create Resource Group (idempotent)
+                        az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
+                        
+                        REM Create Storage Account for Terraform backend
+                        az storage account create ^
+                            --name ${STORAGE_ACCOUNT} ^
+                            --resource-group ${RESOURCE_GROUP} ^
+                            --sku Standard_LRS ^
+                            --location ${LOCATION}
+                        
+                        REM Create Storage Container
+                        az storage container create ^
+                            --name tfstate ^
+                            --account-name ${STORAGE_ACCOUNT}
                     """
                 }
             }
         }
-        
+
         stage('Create Azure Container Registry') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
@@ -113,69 +129,39 @@ pipeline {
             }
         }
 
-        stage('Create Terraform Backend') {
-            steps {
-                script {
-                    failedStage = "Create Terraform Backend"
-                }
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
-
-                        REM Create storage account if not exists
-                        az storage account show --name ${RESOURCE_GROUP}storage --resource-group ${RESOURCE_GROUP} || ^
-                        az storage account create ^
-                            --name ${RESOURCE_GROUP}storage ^
-                            --resource-group ${RESOURCE_GROUP} ^
-                            --sku Standard_LRS ^
-                            --location ${LOCATION}
-
-                        REM Create container if not exists
-                        az storage container create ^
-                            --name tfstate ^
-                            --account-name ${RESOURCE_GROUP}storage
-                    """
-                }
-            }
-        }
-
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID), usernamePassword(credentialsId: 'sql-admin-password', usernameVariable: 'SQL_ADMIN_USER', passwordVariable: 'SQL_ADMIN_PASSWORD')]) {
+                    withCredentials([
+                        azureServicePrincipal(AZURE_CREDENTIALS_ID), 
+                        usernamePassword(
+                            credentialsId: 'sql-admin-password', 
+                            usernameVariable: 'SQL_ADMIN_USER', 
+                            passwordVariable: 'SQL_ADMIN_PASSWORD'
+                        )
+                    ]) {
                         bat """
-                            D:\\DevOps\\terraform\\terraform init -backend-config="key=${RESOURCE_GROUP}.tfstate"
-                            D:\\DevOps\\terraform\\terraform apply -auto-approve \
-                                -var="resource_group_name=${RESOURCE_GROUP}" \
-                                -var="location=${LOCATION}" \
-                                -var="sql_server_name=${SQL_SERVER_NAME}" \
-                                -var="sql_db_name=${SQL_DB_NAME}" \
-                                -var="sql_admin_username=${SQL_ADMIN_USER}" \
-                                -var="sql_admin_password=${SQL_ADMIN_PASSWORD}" \
-                                -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" \
+                            D:\\DevOps\\terraform\\terraform init ^
+                                -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
+                                -backend-config="storage_account_name=${STORAGE_ACCOUNT}" ^
+                                -backend-config="container_name=tfstate" ^
+                                -backend-config="key=${RESOURCE_GROUP}.tfstate"
+                            
+                            D:\\DevOps\\terraform\\terraform apply -auto-approve ^
+                                -var="resource_group_name=${RESOURCE_GROUP}" ^
+                                -var="location=${LOCATION}" ^
+                                -var="sql_server_name=${SQL_SERVER_NAME}" ^
+                                -var="sql_db_name=${SQL_DB_NAME}" ^
+                                -var="sql_admin_username=${SQL_ADMIN_USER}" ^
+                                -var="sql_admin_password=${SQL_ADMIN_PASSWORD}" ^
+                                -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}"
                         """
                     }
                 }
-                script {
-                    env.DEPLOYMENT_INFO = """
-                    Azure Resource Group: ${RESOURCE_GROUP}
-                    SQL Server: ${SQL_SERVER_NAME}.database.windows.net
-                    Database: ${SQL_DB_NAME}
-                    Admin User: ${SQL_ADMIN_USER}
-                    
-                    To destroy these resources, use the 'Destroy Resources' job in Jenkins
-                    or run manually:
-                    D:\\DevOps\\terraform\\terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
-                    """
-                }
             }
         }
-        
+
         stage('Get Endpoints') {
             steps {
                 dir('terraform') {
