@@ -1,7 +1,7 @@
 terraform {
   backend "azurerm" {
     resource_group_name  = "pg-demo"
-    storage_account_name = "pgdemostorage"
+    storage_account_name = "pg-demostorage"
     container_name       = "tfstate"
     key                  = "pg-demo.tfstate"
   }
