@@ -44,6 +44,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Delete ACR Registry') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription f12a172b-b284-45ca-8c4b-3833481d3088
+                        
+                        echo "Deleting ACR: ${AZURE_REGISTRY}"
+                        az acr delete --name ${AZURE_REGISTRY} --resource-group ${params.RESOURCE_GROUP} --yes
+                    """
+                }
+            }
+        }
+
         
         stage('Verify Destruction') {
             steps {

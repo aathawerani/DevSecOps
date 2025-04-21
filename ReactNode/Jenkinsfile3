@@ -48,6 +48,28 @@ pipeline {
             }
         }
         
+        stage('Create Azure Container Registry') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                        
+                        REM Check if ACR exists
+                        az acr show --name ${AZURE_REGISTRY} --query "name" || ^
+                        az acr create --name ${AZURE_REGISTRY} ^
+                            --resource-group ${RESOURCE_GROUP} ^
+                            --sku Basic ^
+                            --admin-enabled true ^
+                            --location ${LOCATION}
+                    """
+                }
+            }
+        }
+
         stage('Build Docker Images') {
             parallel {
                 stage('Frontend Build') {
@@ -75,14 +97,22 @@ pipeline {
         
         stage('Push to Azure Container Registry') {
             steps {
-                bat """
-                    az acr login --name ${AZURE_REGISTRY}
-                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                    docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-                """
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                        
+                        az acr login --name ${AZURE_REGISTRY}
+                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    """
+                }
             }
         }
-        
+
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
