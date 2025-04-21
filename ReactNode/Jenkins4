@@ -6,7 +6,7 @@ pipeline {
     }
     
     environment {
-        AZURE_CREDENTIALS_ID = 'azure-service-principal'
+        AZURE_CREDENTIALS_ID = 'azure-prod-sp'
     }
     
     stages {
