@@ -116,7 +116,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID), string(credentialsId: 'sql-admin-password', variable: 'SQL_ADMIN_PASSWORD')]) {
+                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID), usernamePassword(credentialsId: 'sql-admin-password', usernameVariable: 'SQL_ADMIN_USER', passwordVariable: 'SQL_ADMIN_PASSWORD')]) {
                         bat """
                             terraform init -backend-config="key=${RESOURCE_GROUP}.tfstate"
                             terraform apply -auto-approve \
