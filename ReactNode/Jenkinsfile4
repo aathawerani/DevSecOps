@@ -37,8 +37,8 @@ pipeline {
             steps {
                 dir('terraform') {
                     bat """
-                        terraform init
-                        terraform destroy -auto-approve \
+                        D:\\DevOps\\terraform\\terraform init
+                        D:\\DevOps\\terraform\\terraform destroy -auto-approve \
                             -var="resource_group_name=${params.RESOURCE_GROUP}"
                     """
                 }

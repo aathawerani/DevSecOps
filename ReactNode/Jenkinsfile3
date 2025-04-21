@@ -118,8 +118,8 @@ pipeline {
                 dir('terraform') {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID), usernamePassword(credentialsId: 'sql-admin-password', usernameVariable: 'SQL_ADMIN_USER', passwordVariable: 'SQL_ADMIN_PASSWORD')]) {
                         bat """
-                            terraform init -backend-config="key=${RESOURCE_GROUP}.tfstate"
-                            terraform apply -auto-approve \
+                            D:\\DevOps\\terraform\\terraform init -backend-config="key=${RESOURCE_GROUP}.tfstate"
+                            D:\\DevOps\\terraform\\terraform apply -auto-approve \
                                 -var="resource_group_name=${RESOURCE_GROUP}" \
                                 -var="location=${LOCATION}" \
                                 -var="sql_server_name=${SQL_SERVER_NAME}" \
@@ -140,7 +140,7 @@ pipeline {
                     
                     To destroy these resources, use the 'Destroy Resources' job in Jenkins
                     or run manually:
-                    terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
+                    D:\\DevOps\\terraform\\terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
                     """
                 }
             }
@@ -151,11 +151,11 @@ pipeline {
                 dir('terraform') {
                     script {
                         env.APP_URL = bat(
-                            script: 'terraform output -raw frontend_url', 
+                            script: 'D:\\DevOps\\terraform\\terraform output -raw frontend_url', 
                             returnStdout: true
                         ).trim()
                         env.SQL_CONNECTION_STRING = bat(
-                            script: 'terraform output -raw sql_connection_string', 
+                            script: 'D:\\DevOps\\terraform\\terraform output -raw sql_connection_string', 
                             returnStdout: true
                         ).trim()
                         
@@ -187,7 +187,7 @@ pipeline {
                      text: """
                      #!/bin/bash
                      cd terraform
-                     terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
+                     D:\\DevOps\\terraform\\terraform destroy -auto-approve -var="resource_group_name=${RESOURCE_GROUP}"
                      """
             archiveArtifacts artifacts: "destroy-${BUILD_NUMBER}.sh"
         }
