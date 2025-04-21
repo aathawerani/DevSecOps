@@ -1,3 +1,12 @@
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "pg-demo"
+    storage_account_name = "pgdemostorage"
+    container_name       = "tfstate"
+    key                  = "pg-demo.tfstate"
+  }
+}
+
 provider "azurerm" {
   features {}
 }
@@ -7,13 +16,6 @@ provider "kubernetes" {
   client_certificate     = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_certificate)
   client_key             = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_key)
   cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate)
-}
-
-backend "azurerm" {
-  resource_group_name  = "pg-demo"
-  storage_account_name = "pgdemostorage"
-  container_name       = "tfstate"
-  key                  = "pg-demo.tfstate"
 }
 
 variable "resource_group_name" {
