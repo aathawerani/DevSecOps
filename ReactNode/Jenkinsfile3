@@ -38,7 +38,7 @@ pipeline {
         stage('Azure Setup') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
+                    bat '''
                         call az login --service-principal ^
                             -u ${AZURE_CLIENT_ID} ^
                             -p ${AZURE_CLIENT_SECRET} ^
@@ -47,6 +47,8 @@ pipeline {
                         call az account set --subscription ${AZURE_SUBSCRIPTION}
 
                         call az account show
+
+                        call az account list
 
                         REM Create Resource Group (idempotent)
                         call az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
@@ -68,7 +70,7 @@ pipeline {
 
                         REM Wait for storage account
                         call az storage account show --name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query "name"
-                    """
+                    '''
                 }
             }
         }
