@@ -12,6 +12,16 @@ pipeline {
     }
     
     stages {
+
+        stage('Checkout') {
+            steps {
+                script {
+                    failedStage = "Checkout"
+                }
+                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/DevSecOps.git'
+            }
+        }
+
         
         stage('Azure Login') {
             steps {
