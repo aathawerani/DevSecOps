@@ -135,7 +135,7 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply') {
+        /*stage('Terraform Apply') {
             steps {
                 dir('terraform') {
                     withCredentials([
@@ -186,7 +186,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }*/
     }
     
     post {
