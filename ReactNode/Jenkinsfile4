@@ -18,20 +18,6 @@ pipeline {
             }
         }
 
-        
-        stage('Azure Login') {
-            steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az login --service-principal \
-                            -u ${AZURE_CLIENT_ID} \
-                            -p ${AZURE_CLIENT_SECRET} \
-                            --tenant ${AZURE_TENANT_ID}
-                    """
-                }
-            }
-        }
-        
         stage('Terraform Destroy') {
             steps {
                 dir('ReactNode/terraform') {
