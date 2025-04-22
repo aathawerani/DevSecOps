@@ -38,7 +38,7 @@ pipeline {
         
         stage('Terraform Destroy') {
             steps {
-                dir('terraform') {
+                dir('ReactNode/terraform') {
                     bat """
                         D:\\DevOps\\terraform\\terraform init
                         D:\\DevOps\\terraform\\terraform destroy -auto-approve \
