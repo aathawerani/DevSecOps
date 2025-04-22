@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     environment {
-        RESOURCE_GROUP = "pg-demo"
-        STORAGE_ACCOUNT = "pgdemostorage"
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
+        AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088' // Your subscription ID
     }
     
     stages {
@@ -18,20 +17,31 @@ pipeline {
             }
         }
 
+        stage('Login to Azure') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                        call az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                        call az account set --subscription ${AZURE_SUBSCRIPTION}
+                    """
+                }
+            }
+        }
+
         stage('Terraform Destroy') {
             steps {
                 dir('ReactNode/terraform') {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        bat """
-                            call az login --service-principal \
-                                -u ${AZURE_CLIENT_ID} \
-                                -p ${AZURE_CLIENT_SECRET} \
-                                --tenant ${AZURE_TENANT_ID}
-
-                            call D:\\DevOps\\terraform\\terraform init
-                            call D:\\DevOps\\terraform\\terraform destroy -auto-approve \
-                                -var="resource_group_name=${RESOURCE_GROUP}"
-                        """
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            bat """
+                                D:\\DevOps\\terraform\\terraform init
+                                D:\\DevOps\\terraform\\terraform destroy -auto-approve \
+                                    -var="resource_group_name=${RESOURCE_GROUP}"
+                            """
+                        }
                     }
                 }
             }
@@ -40,46 +50,63 @@ pipeline {
         stage('Delete Terraform Backend') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        bat """
+                            echo "Deleting backend container and storage account..."
+                            az storage container delete ^
+                                --name tfstate ^
+                                --account-name ${STORAGE_ACCOUNT} ^
+                                --yes
 
-                        echo "Deleting backend container and storage account..."
-                        az storage container delete ^
-                            --name tfstate ^
-                            --account-name ${STORAGE_ACCOUNT} ^
-                            --yes
-
-                        az storage account delete ^
-                            --name ${STORAGE_ACCOUNT} ^
-                            --resource-group ${RESOURCE_GROUP} ^
-                            --yes
-                    """
+                            az storage account delete ^
+                                --name ${STORAGE_ACCOUNT} ^
+                                --resource-group ${RESOURCE_GROUP} ^
+                                --yes
+                        """
+                    }
                 }
             }
         }
 
-        stage('Delete ACR Registry') {
+        stage('Delete All Resource Groups') {
             steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        az account set --subscription f12a172b-b284-45ca-8c4b-3833481d3088
-                        
-                        echo "Deleting ACR: ${AZURE_REGISTRY}"
-                        az acr delete --name ${AZURE_REGISTRY} --resource-group ${RESOURCE_GROUP} --yes
-                    """
+                bat """
+                    az acr delete --name ${AZURE_REGISTRY} --resource-group ${RESOURCE_GROUP} --yes
+                """
+                script {
+                    // Get all resource groups in the subscription
+                    def resourceGroups = bat(
+                        script: 'az group list --query "[].name" -o tsv',
+                        returnStdout: true
+                    ).trim().split('\n')
+                    
+                    // Force delete each resource group and all its contents
+                    resourceGroups.each { rg ->
+                        if (rg) {
+                            bat """
+                                echo "FORCE DELETING RESOURCE GROUP: ${rg}"
+                                az group delete --name "${rg}" --yes --no-wait --force-deletion-types Microsoft.Compute/virtualMachines
+                            """
+                        }
+                    }
                 }
             }
         }
 
-        
+        stage('Delete Orphaned Resources') {
+            steps {
+                script {
+                    // Delete any remaining ungrouped resources
+                    bat '''
+                        echo "Cleaning up orphaned resources..."
+                        az resource list --query "[?resourceGroup==null].id" -o tsv | %% {
+                            if ($_) { az resource delete --ids $_ --verbose }
+                        }
+                    '''
+                }
+            }
+        }
+
         stage('Verify Destruction') {
             steps {
                 script {
