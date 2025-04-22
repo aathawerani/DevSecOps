@@ -56,8 +56,7 @@ pipeline {
 
                         call az storage container create ^
                             --name tfstate ^
-                            --account-name ${STORAGE_ACCOUNT} ^
-                            --auth-mode login
+                            --account-name ${STORAGE_ACCOUNT} 
                     """
                 }
             }

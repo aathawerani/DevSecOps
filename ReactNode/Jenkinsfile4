@@ -1,6 +1,6 @@
 pipeline {
     agent any
-        
+
     environment {
         RESOURCE_GROUP = "pg-demo"
         STORAGE_ACCOUNT = "pgdemostorage"
@@ -35,11 +35,18 @@ pipeline {
         stage('Terraform Destroy') {
             steps {
                 dir('ReactNode/terraform') {
-                    bat """
-                        D:\\DevOps\\terraform\\terraform init
-                        D:\\DevOps\\terraform\\terraform destroy -auto-approve \
-                            -var="resource_group_name=${RESOURCE_GROUP}"
-                    """
+                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                        bat """
+                            call az login --service-principal \
+                                -u ${AZURE_CLIENT_ID} \
+                                -p ${AZURE_CLIENT_SECRET} \
+                                --tenant ${AZURE_TENANT_ID}
+
+                            call D:\\DevOps\\terraform\\terraform init
+                            call D:\\DevOps\\terraform\\terraform destroy -auto-approve \
+                                -var="resource_group_name=${RESOURCE_GROUP}"
+                        """
+                    }
                 }
             }
         }
