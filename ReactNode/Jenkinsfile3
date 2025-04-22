@@ -52,6 +52,7 @@ pipeline {
         stage('Azure Setup') {
             steps {
                 bat """
+                    call az account set --subscription ${AZURE_SUBSCRIPTION}
                     
                     REM Create Resource Group (idempotent)
                     call az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
