@@ -54,25 +54,25 @@ pipeline {
                 bat """
                     
                     REM Create Resource Group (idempotent)
-                    az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
+                    call az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
 
                     REM Wait for confirmation the resource group exists
-                    az group wait --name ${RESOURCE_GROUP} --exists
+                    call az group wait --name ${RESOURCE_GROUP} --exists
                     
                     REM Create Storage Account for Terraform backend
-                    az storage account create ^
+                    call az storage account create ^
                         --name ${STORAGE_ACCOUNT} ^
                         --resource-group ${RESOURCE_GROUP} ^
                         --sku Standard_LRS ^
                         --location ${LOCATION}
                     
                     REM Create Storage Container
-                    az storage container create ^
+                    call az storage container create ^
                         --name tfstate ^
                         --account-name ${STORAGE_ACCOUNT}
 
                     REM Wait for storage account
-                    az storage account show --name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query "name"
+                    call az storage account show --name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query "name"
                 """
             }
         }
