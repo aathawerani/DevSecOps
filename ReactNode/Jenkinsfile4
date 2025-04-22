@@ -6,19 +6,12 @@ pipeline {
     }
     
     environment {
+        RESOURCE_GROUP = "pg-demo"
+        STORAGE_ACCOUNT = "pgdemostorage"
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
     }
     
     stages {
-        stage('Verify Parameters') {
-            steps {
-                script {
-                    if (!params.RESOURCE_GROUP?.trim()) {
-                        error("Resource Group parameter is required")
-                    }
-                }
-            }
-        }
         
         stage('Azure Login') {
             steps {
@@ -39,7 +32,7 @@ pipeline {
                     bat """
                         D:\\DevOps\\terraform\\terraform init
                         D:\\DevOps\\terraform\\terraform destroy -auto-approve \
-                            -var="resource_group_name=${params.RESOURCE_GROUP}"
+                            -var="resource_group_name=${RESOURCE_GROUP}"
                     """
                 }
             }
@@ -58,12 +51,12 @@ pipeline {
                         echo "Deleting backend container and storage account..."
                         az storage container delete ^
                             --name tfstate ^
-                            --account-name ${params.RESOURCE_GROUP}storage ^
+                            --account-name ${STORAGE_ACCOUNT} ^
                             --yes
 
                         az storage account delete ^
-                            --name ${params.RESOURCE_GROUP}storage ^
-                            --resource-group ${params.RESOURCE_GROUP} ^
+                            --name ${STORAGE_ACCOUNT} ^
+                            --resource-group ${RESOURCE_GROUP} ^
                             --yes
                     """
                 }
@@ -81,7 +74,7 @@ pipeline {
                         az account set --subscription f12a172b-b284-45ca-8c4b-3833481d3088
                         
                         echo "Deleting ACR: ${AZURE_REGISTRY}"
-                        az acr delete --name ${AZURE_REGISTRY} --resource-group ${params.RESOURCE_GROUP} --yes
+                        az acr delete --name ${AZURE_REGISTRY} --resource-group ${RESOURCE_GROUP} --yes
                     """
                 }
             }
@@ -92,14 +85,14 @@ pipeline {
             steps {
                 script {
                     def rgExists = bat(
-                        script: "az group exists --name ${params.RESOURCE_GROUP}",
+                        script: "az group exists --name ${RESOURCE_GROUP}",
                         returnStdout: true
                     ).trim()
                     
                     if (rgExists == "true") {
                         error("Resource group still exists after destruction!")
                     } else {
-                        echo "Resource group ${params.RESOURCE_GROUP} successfully deleted"
+                        echo "Resource group ${RESOURCE_GROUP} successfully deleted"
                     }
                 }
             }
@@ -109,13 +102,13 @@ pipeline {
     post {
         always {
             emailext body: """
-                Resource destruction ${currentBuild.currentResult} for Build ${params.BUILD_NUMBER}
+                Resource destruction ${currentBuild.currentResult} 
                 
-                Resource Group: ${params.RESOURCE_GROUP}
+                Resource Group: ${RESOURCE_GROUP}
                 
                 Jenkins build: ${BUILD_URL}
             """,
-            subject: "Destruction ${currentBuild.currentResult}: PaymentGateway ${params.BUILD_NUMBER}",
+            subject: "Destruction ${currentBuild.currentResult}: PaymentGateway ",
             to: "athawerani@gmail.com"
         }
     }
