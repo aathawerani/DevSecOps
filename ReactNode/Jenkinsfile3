@@ -51,45 +51,37 @@ pipeline {
 
         stage('Azure Setup') {
             steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
-                        
-                        REM Create Resource Group (idempotent)
-                        az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
+                bat """
+                    az account set --subscription ${AZURE_SUBSCRIPTION}
+                    
+                    REM Create Resource Group (idempotent)
+                    az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
 
-                        REM Wait for confirmation the resource group exists
-                        az group wait --name ${RESOURCE_GROUP} --exists
-                        
-                        REM Create Storage Account for Terraform backend
-                        az storage account create ^
-                            --name ${STORAGE_ACCOUNT} ^
-                            --resource-group ${RESOURCE_GROUP} ^
-                            --sku Standard_LRS ^
-                            --location ${LOCATION}
-                        
-                        REM Create Storage Container
-                        az storage container create ^
-                            --name tfstate ^
-                            --account-name ${STORAGE_ACCOUNT}
+                    REM Wait for confirmation the resource group exists
+                    az group wait --name ${RESOURCE_GROUP} --exists
+                    
+                    REM Create Storage Account for Terraform backend
+                    az storage account create ^
+                        --name ${STORAGE_ACCOUNT} ^
+                        --resource-group ${RESOURCE_GROUP} ^
+                        --sku Standard_LRS ^
+                        --location ${LOCATION}
+                    
+                    REM Create Storage Container
+                    az storage container create ^
+                        --name tfstate ^
+                        --account-name ${STORAGE_ACCOUNT}
 
-                        REM Wait for storage account
-                        az storage account show --name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query "name"
-                    """
-                }
+                    REM Wait for storage account
+                    az storage account show --name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query "name"
+                """
             }
         }
 
         stage('Create Azure Container Registry') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
-                        
+                    bat """                        
                         REM Check if ACR exists
                         az acr show --name ${AZURE_REGISTRY} --query "name" || ^
                         az acr create --name ${AZURE_REGISTRY} ^
@@ -131,12 +123,6 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """
-                        az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
-                        
                         az acr login --name ${AZURE_REGISTRY}
                         docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
                         docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
