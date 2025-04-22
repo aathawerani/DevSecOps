@@ -135,7 +135,7 @@ pipeline {
             }
         }
 
-        /*stage('Terraform Apply') {
+        stage('Terraform Apply') {
             steps {
                 dir('terraform') {
                     withCredentials([
@@ -147,6 +147,13 @@ pipeline {
                         )
                     ]) {
                         bat """
+
+                            az login --service-principal ^
+                            -u ${AZURE_CLIENT_ID} ^
+                            -p ${AZURE_CLIENT_SECRET} ^
+                            --tenant ${AZURE_TENANT_ID}
+                            az account set --subscription ${AZURE_SUBSCRIPTION}
+
                             D:\\DevOps\\terraform\\terraform init ^
                                 -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
                                 -backend-config="storage_account_name=${STORAGE_ACCOUNT}" ^
@@ -186,7 +193,7 @@ pipeline {
                     }
                 }
             }
-        }*/
+        }
     }
     
     post {
