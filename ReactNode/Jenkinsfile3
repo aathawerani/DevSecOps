@@ -67,8 +67,6 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """                        
-                        REM Check if ACR exists
-                        az acr show --name ${AZURE_REGISTRY} --query "name" || ^
                         az acr create --name ${AZURE_REGISTRY} ^
                             --resource-group ${RESOURCE_GROUP} ^
                             --sku Basic ^
