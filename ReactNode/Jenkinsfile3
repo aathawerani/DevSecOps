@@ -35,7 +35,7 @@ pipeline {
             }
         }
         
-        stage('Azure Setup') {
+        stage('Azure Login') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """
@@ -43,6 +43,16 @@ pipeline {
                             -u ${AZURE_CLIENT_ID} ^
                             -p ${AZURE_CLIENT_SECRET} ^
                             --tenant ${AZURE_TENANT_ID}
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                    """
+                }
+            }
+        }
+
+        stage('Azure Setup') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """
                         az account set --subscription ${AZURE_SUBSCRIPTION}
                         
                         REM Create Resource Group (idempotent)
