@@ -34,20 +34,6 @@ pipeline {
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
-        
-        stage('Azure Login') {
-            steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        call az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        call az account set --subscription ${AZURE_SUBSCRIPTION}
-                    """
-                }
-            }
-        }
 
         stage('Azure Setup') {
             steps {
@@ -59,6 +45,8 @@ pipeline {
                             --tenant ${AZURE_TENANT_ID}
 
                         call az account set --subscription ${AZURE_SUBSCRIPTION}
+
+                        call az account show
 
                         REM Create Resource Group (idempotent)
                         call az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
