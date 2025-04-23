@@ -35,12 +35,16 @@ pipeline {
             steps {
                 dir('ReactNode/terraform') {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        try {
                             bat """
                                 D:\\DevOps\\terraform\\terraform init
                                 D:\\DevOps\\terraform\\terraform destroy -auto-approve \
                                     -var="resource_group_name=${RESOURCE_GROUP}"
                             """
+                        }
+                        catch (Exception e) {
+                            echo "Caught exception: ${e}"
+
                         }
                     }
                 }
@@ -50,7 +54,7 @@ pipeline {
         stage('Delete Terraform Backend') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    try {
                         bat """
                             echo "Deleting backend container and storage account..."
                             az storage container delete ^
@@ -63,6 +67,10 @@ pipeline {
                                 --resource-group ${RESOURCE_GROUP} ^
                                 --yes
                         """
+                    }
+                    catch (Exception e) {
+                        echo "Caught exception: ${e}"
+
                     }
                 }
             }
