@@ -36,9 +36,9 @@ pipeline {
         stage('Identify Terraform-Managed Resources') {
             steps {
                 script {
-                    // Corrected query syntax for Azure CLI
+                    // Correct syntax for Azure CLI query in Jenkins pipeline
                     def tfResourceGroups = bat(
-                        script: 'az group list --query "[?tags.\`created-by\`==\`terraform\`].name" -o tsv',
+                        script: 'az group list --query "[?tags.\\`created-by\\`==\\`terraform\\`].name" -o tsv',
                         returnStdout: true
                     ).trim()
 
@@ -55,7 +55,7 @@ pipeline {
                 }
             }
         }
-        
+                
         stage('Terraform Destroy') {
             when {
                 expression { env.TF_RESOURCE_GROUPS?.trim() }
