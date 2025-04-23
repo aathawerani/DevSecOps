@@ -34,9 +34,9 @@ pipeline {
         }
         
         stage('Terraform Destroy') {
-            script{
-                try{
-                    steps {
+            steps{
+                script{
+                    try{
                         dir('ReactNode/terraform') {
                             withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                                 bat """
@@ -51,10 +51,10 @@ pipeline {
                             }
                         }
                     }
-                }
-                catch (Exception e)
-                {
-                    echo "Got exception"
+                    catch (Exception e)
+                    {
+                        echo "Got exception"
+                    }
                 }
             }
         }
