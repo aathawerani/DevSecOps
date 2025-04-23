@@ -16,18 +16,27 @@ pipeline {
         stage('Fetch Deployment Info') {
             steps {
                 script {
-                    // Use build number directly without 'specific' selector
-                    copyArtifacts(
-                        projectName: 'DevSecOps4',
-                        filter: 'deployment_params.json',
-                        selector: buildParameter('SOURCE_BUILD_NUMBER')
-                    )
+                    // Use the build number directly
+                    def buildNumber = params.SOURCE_BUILD_NUMBER
                     
-                    // Load parameters from file
-                    if (!fileExists('deployment_params.json')) {
-                        error("Failed to find deployment parameters for build ${params.SOURCE_BUILD_NUMBER}")
+                    // Verify the build number is provided
+                    if (!buildNumber?.trim()) {
+                        error("Please provide a valid build number")
                     }
                     
+                    // Copy artifacts using the build number
+                    copyArtifacts(
+                        projectName: 'paymentgateway-create',
+                        filter: 'deployment_params.json',
+                        selector: specific("${buildNumber}")
+                    )
+                    
+                    // Verify the file was copied
+                    if (!fileExists('deployment_params.json')) {
+                        error("Failed to find deployment parameters for build ${buildNumber}")
+                    }
+                    
+                    // Load parameters from file
                     def deployInfo = readJSON file: 'deployment_params.json'
                     env.DEPLOYMENT_ID = deployInfo.deployment_id
                     env.RESOURCE_GROUP = deployInfo.resource_group
