@@ -36,22 +36,14 @@ pipeline {
         stage('Identify Terraform-Managed Resources') {
             steps {
                 script {
-                    // Correct syntax for Azure CLI query in Jenkins pipeline
+                    // This works for most tag formats
                     def tfResourceGroups = bat(
-                        script: 'az group list --query "[?tags.\\`created-by\\`==\\`terraform\\`].name" -o tsv',
+                        script: 'az group list --query "[?tags.createdBy == \'terraform\'].name" -o tsv',
                         returnStdout: true
-                    ).trim()
-
-                    // Split into array and filter out empty lines
-                    tfResourceGroups = tfResourceGroups.split('\n').findAll { it.trim() }
-
-                    if (tfResourceGroups) {
-                        echo "Found Terraform-managed resource groups: ${tfResourceGroups.join(', ')}"
-                        env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
-                    } else {
-                        echo "No Terraform-managed resource groups found"
-                        env.TF_RESOURCE_GROUPS = ''
-                    }
+                    ).trim().split('\n').findAll { it.trim() }
+                    
+                    env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
+                    echo "Found Terraform RGs: ${env.TF_RESOURCE_GROUPS}"
                 }
             }
         }
