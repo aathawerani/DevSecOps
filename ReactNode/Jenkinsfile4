@@ -63,17 +63,17 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """
-                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
-                        az account set --subscription ${AZURE_SUBSCRIPTION}
+                        call az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
+                        call az account set --subscription ${AZURE_SUBSCRIPTION}
                         
                         echo "Deleting ACR ${env.ACR_NAME}..."
-                        az acr delete --name ${env.ACR_NAME} --resource-group ${env.RESOURCE_GROUP} --yes || echo "ACR already deleted"
+                        call az acr delete --name ${env.ACR_NAME} --resource-group ${env.RESOURCE_GROUP} --yes || echo "ACR already deleted"
                         
                         echo "Deleting storage account ${env.STORAGE_ACCOUNT}..."
-                        az storage account delete --name ${env.STORAGE_ACCOUNT} --resource-group ${env.RESOURCE_GROUP} --yes || echo "Storage already deleted"
+                        call az storage account delete --name ${env.STORAGE_ACCOUNT} --resource-group ${env.RESOURCE_GROUP} --yes || echo "Storage already deleted"
                         
                         echo "Deleting resource group ${env.RESOURCE_GROUP}..."
-                        az group delete --name ${env.RESOURCE_GROUP} --yes --no-wait
+                        call az group delete --name ${env.RESOURCE_GROUP} --yes --no-wait
                     """
                 }
             }
