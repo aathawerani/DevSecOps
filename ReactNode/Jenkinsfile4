@@ -18,7 +18,7 @@ pipeline {
                 script {
                     // Use build number directly without 'specific' selector
                     copyArtifacts(
-                        projectName: 'paymentgateway-create',
+                        projectName: 'DevSecOps4',
                         filter: 'deployment_params.json',
                         selector: buildParameter('SOURCE_BUILD_NUMBER')
                     )
