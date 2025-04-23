@@ -3,77 +3,70 @@ pipeline {
 
     environment {
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
-        AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088' // Your subscription ID
+        AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
+        TF_STATE_RESOURCE_GROUP = 'terraform-state-rg' // RG containing Terraform state storage
+        TF_STATE_STORAGE_ACCOUNT = 'tfstatesa'        // Storage account for Terraform state
+        TF_STATE_CONTAINER = 'tfstate'                // Container for Terraform state
     }
-    
-    stages {
 
-        stage('Checkout') {
+    stages {
+        stage('Checkout Code') {
             steps {
-                script {
-                    failedStage = "Checkout"
-                }
-                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/DevSecOps.git'
+                checkout([$class: 'GitSCM', 
+                         branches: [[name: 'main']],
+                         userRemoteConfigs: [[
+                             credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f',
+                             url: 'https://github.com/aathawerani/DevSecOps.git'
+                         ]]
+                ])
             }
         }
 
-        stage('Login to Azure') {
+        stage('Azure Login') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        call az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                        call az account set --subscription ${AZURE_SUBSCRIPTION}
-                    """
+                    bat '''
+                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
+                        az account set --subscription %AZURE_SUBSCRIPTION%
+                    '''
+                }
+            }
+        }
+
+        stage('Identify Terraform-Managed Resources') {
+            steps {
+                script {
+                    // Find all resource groups with Terraform tags
+                    def tfResourceGroups = bat(
+                        script: 'az group list --query "[?tags.\'created-by\'==\'terraform\'].name" -o tsv',
+                        returnStdout: true
+                    ).trim().split('\n')
+
+                    // Store for later use
+                    env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
                 }
             }
         }
 
         stage('Terraform Destroy') {
-            steps {
-                script {
-                    try {
-                        dir('ReactNode/terraform') {
-                            withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                                bat """
-                                    D:\\DevOps\\terraform\\terraform init
-                                    D:\\DevOps\\terraform\\terraform destroy -auto-approve \
-                                        -var="resource_group_name=${RESOURCE_GROUP}"
-                                """
-                            }
-                        }
-                    }
-                    catch (Exception e) {
-                        echo "Caught exception: ${e}"
-
-                    }
-                }
+            when {
+                expression { env.TF_RESOURCE_GROUPS?.trim() }
             }
-        }
-
-        stage('Delete Terraform Backend') {
             steps {
                 script {
-                    try {
+                    dir('ReactNode/terraform') {
                         withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                            // Initialize Terraform with remote state
                             bat """
-                                echo "Deleting backend container and storage account..."
-                                az storage container delete ^
-                                    --name tfstate ^
-                                    --account-name ${STORAGE_ACCOUNT} ^
-                                    --yes
-
-                                az storage account delete ^
-                                    --name ${STORAGE_ACCOUNT} ^
-                                    --resource-group ${RESOURCE_GROUP} ^
-                                    --yes
+                                D:\\DevOps\\terraform\\terraform init ^
+                                    -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" ^
+                                    -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" ^
+                                    -backend-config="container_name=${TF_STATE_CONTAINER}" ^
+                                    -backend-config="key=terraform.tfstate"
+                                
+                                D:\\DevOps\\terraform\\terraform destroy -auto-approve
                             """
                         }
-                    }
-                    catch (Exception e) {
-                        echo "Caught exception: ${e}"
                     }
                 }
             }
@@ -81,22 +74,19 @@ pipeline {
 
         stage('Delete All Resource Groups') {
             steps {
-                bat """
-                    az acr delete --name ${AZURE_REGISTRY} --resource-group ${RESOURCE_GROUP} --yes
-                """
                 script {
-                    // Get all resource groups in the subscription
-                    def resourceGroups = bat(
+                    // Get all resource groups (including non-Terraform ones)
+                    def allResourceGroups = bat(
                         script: 'az group list --query "[].name" -o tsv',
                         returnStdout: true
                     ).trim().split('\n')
-                    
-                    // Force delete each resource group and all its contents
-                    resourceGroups.each { rg ->
-                        if (rg) {
+
+                    // Delete each resource group
+                    allResourceGroups.each { rg ->
+                        if (rg && !rg.startsWith('NetworkWatcherRG')) { // Skip Azure default RGs
                             bat """
-                                echo "FORCE DELETING RESOURCE GROUP: ${rg}"
-                                az group delete --name "${rg}" --yes --no-wait --force-deletion-types Microsoft.Compute/virtualMachines
+                                echo "Deleting resource group: ${rg}"
+                                az group delete --name "${rg}" --yes --no-wait
                             """
                         }
                     }
@@ -104,49 +94,64 @@ pipeline {
             }
         }
 
-        stage('Delete Orphaned Resources') {
+        stage('Cleanup Orphaned Resources') {
             steps {
                 script {
-                    // Delete any remaining ungrouped resources
+                    // Delete ungrouped resources
                     bat '''
                         echo "Cleaning up orphaned resources..."
-                        az resource list --query "[?resourceGroup==null].id" -o tsv | %% {
+                        az resource list --query "[?resourceGroup==null].id" -o tsv | % {
                             if ($_) { az resource delete --ids $_ --verbose }
                         }
                     '''
+
+                    // Clean up Terraform state storage if empty
+                    bat """
+                        az storage container delete --name ${TF_STATE_CONTAINER} ^
+                            --account-name ${TF_STATE_STORAGE_ACCOUNT} ^
+                            --yes || echo "Container already deleted or doesn't exist"
+                    """
                 }
             }
         }
 
-        stage('Verify Destruction') {
+        stage('Verify Cleanup') {
             steps {
                 script {
-                    def rgExists = bat(
-                        script: "az group exists --name ${RESOURCE_GROUP}",
+                    def remainingRGs = bat(
+                        script: 'az group list --query "[].name" -o tsv',
                         returnStdout: true
-                    ).trim()
-                    
-                    if (rgExists == "true") {
-                        error("Resource group still exists after destruction!")
+                    ).trim().split('\n')
+
+                    remainingRGs = remainingRGs.findAll { it && !it.startsWith('NetworkWatcherRG') }
+
+                    if (remainingRGs) {
+                        error("Cleanup incomplete! Remaining RGs: ${remainingRGs.join(', ')}")
                     } else {
-                        echo "Resource group ${RESOURCE_GROUP} successfully deleted"
+                        echo "All resources successfully deleted"
                     }
                 }
             }
         }
     }
-    
+
     post {
         always {
             emailext body: """
-                Resource destruction ${currentBuild.currentResult} 
+                Azure Resource Cleanup ${currentBuild.currentResult}
                 
-                Resource Group: ${RESOURCE_GROUP}
+                Terraform Resource Groups: ${env.TF_RESOURCE_GROUPS ?: 'NONE'}
                 
-                Jenkins build: ${BUILD_URL}
+                Build URL: ${BUILD_URL}
+                Console Output: ${BUILD_URL}console
             """,
-            subject: "Destruction ${currentBuild.currentResult}: PaymentGateway ",
-            to: "athawerani@gmail.com"
+            subject: "Azure Cleanup ${currentBuild.currentResult}",
+            to: "athawerani@gmail.com",
+            attachLog: true
+        }
+        
+        cleanup {
+            bat 'az logout'
         }
     }
 }
