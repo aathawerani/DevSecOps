@@ -138,9 +138,9 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     bat """
-                        az acr login --name ${AZURE_REGISTRY}
-                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                        call az acr login --name ${AZURE_REGISTRY}
+                        call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        call docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
                     """
                 }
             }
@@ -159,11 +159,11 @@ pipeline {
                     ]) {
                         bat """
 
-                            az login --service-principal ^
+                            call az login --service-principal ^
                             -u ${AZURE_CLIENT_ID} ^
                             -p ${AZURE_CLIENT_SECRET} ^
                             --tenant ${AZURE_TENANT_ID}
-                            az account set --subscription ${AZURE_SUBSCRIPTION}
+                            call az account set --subscription ${AZURE_SUBSCRIPTION}
 
                             D:\\DevOps\\terraform\\terraform init ^
                                 -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
@@ -179,7 +179,9 @@ pipeline {
                                 -var="sql_admin_username=${SQL_ADMIN_USER}" ^
                                 -var="sql_admin_password=${SQL_ADMIN_PASSWORD}" ^
                                 -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" ^
-                                -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}"
+                                -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}" ^
+                                -var="acr_name=${AZURE_REGISTRY}" ^
+                                -var="storage_account_name=${STORAGE_ACCOUNT}"
                         """
                     }
                 }
