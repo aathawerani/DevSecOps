@@ -26,7 +26,7 @@ pipeline {
                     
                     // Copy artifacts using the build number
                     copyArtifacts(
-                        projectName: 'paymentgateway-create',
+                        projectName: 'DevSecOps4',
                         filter: 'deployment_params.json',
                         selector: specific("${buildNumber}")
                     )
