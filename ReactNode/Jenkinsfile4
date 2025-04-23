@@ -56,27 +56,6 @@ pipeline {
             }
         }
         
-        // [Keep all other stages unchanged - Confirm Destruction, Terraform Destroy, Cleanup Azure Resources]
-        stage('Confirm Destruction') {
-            steps {
-                script {
-                    timeout(time: 2, unit: 'MINUTES') {
-                        input(
-                            message: "CONFIRM DESTRUCTION OF DEPLOYMENT ${env.DEPLOYMENT_ID}?",
-                            ok: "Destroy Resources",
-                            parameters: [
-                                text(
-                                    name: 'CONFIRMATION',
-                                    defaultValue: 'Type \"destroy ${env.DEPLOYMENT_ID}\" to confirm',
-                                    description: 'Safety check'
-                                )
-                            ]
-                        )
-                    }
-                }
-            }
-        }
-
         stage('Terraform Destroy') {
             steps {
                 dir('terraform') {
