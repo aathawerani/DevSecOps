@@ -1,51 +1,61 @@
-properties([
-    parameters([
-        string(
-            name: 'DEPLOYMENT_ID',
-            defaultValue: '',
-            description: 'Deployment ID from create pipeline'
-        ),
-        string(
-            name: 'RESOURCE_GROUP',
-            defaultValue: '',
-            description: 'Resource group to destroy'
-        ),
-        string(
-            name: 'STORAGE_ACCOUNT',
-            defaultValue: '',
-            description: 'Storage account containing state'
-        )
-    ])
-])
-
 pipeline {
     agent any
+    parameters {
+        string(
+            name: 'SOURCE_BUILD_NUMBER',
+            description: 'Enter the build number from the CREATE pipeline that you want to destroy'
+        )
+    }
+    
+    environment {
+        AZURE_CREDENTIALS_ID = 'azure-prod-sp'
+        AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
+    }
+
     stages {
-        stage('Verify Parameters') {
+        stage('Fetch Deployment Info') {
             steps {
                 script {
-                    if (!params.DEPLOYMENT_ID) {
-                        error("Please provide DEPLOYMENT_ID parameter")
+                    // Step 1: Copy parameters file from source build
+                    copyArtifacts(
+                        projectName: 'paymentgateway-create', // Match your create job name
+                        filter: 'deployment_params.json',
+                        selector: specific(params.SOURCE_BUILD_NUMBER)
+                    )
+                    
+                    // Step 2: Load all parameters from the file
+                    def deployInfo = readJSON file: 'deployment_params.json'
+                    env.DEPLOYMENT_ID = deployInfo.deployment_id
+                    env.RESOURCE_GROUP = deployInfo.resource_group
+                    env.STORAGE_ACCOUNT = deployInfo.storage_account
+                    env.TF_STATE_KEY = deployInfo.tf_state_key
+                    env.ACR_NAME = deployInfo.acr_name
+                    env.SQL_SERVER = deployInfo.sql_server
+                    
+                    // Step 3: Verify we got the parameters
+                    if (!env.RESOURCE_GROUP?.trim()) {
+                        error("Failed to load deployment parameters from build ${params.SOURCE_BUILD_NUMBER}")
                     }
                     
-                    // Optionally fetch other parameters if only DEPLOYMENT_ID is provided
-                    if (!params.RESOURCE_GROUP) {
-                        def build = currentBuild.rawBuild.project.getBuildByNumber(params.SOURCE_BUILD_NUMBER.toInteger())
-                        def artifact = build.getArtifacts().find { it.name == 'deployment_params.json' }
-                        def deployInfo = readJSON text: artifact.getFile().text
-                        env.RESOURCE_GROUP = deployInfo.resource_group
-                        env.STORAGE_ACCOUNT = deployInfo.storage_account
-                    }
+                    currentBuild.displayName = "DESTROY-${env.DEPLOYMENT_ID}"
+                    echo """
+                    Loaded deployment to destroy:
+                    - Deployment ID: ${env.DEPLOYMENT_ID}
+                    - Resource Group: ${env.RESOURCE_GROUP}
+                    - Storage Account: ${env.STORAGE_ACCOUNT}
+                    - ACR: ${env.ACR_NAME}
+                    - SQL Server: ${env.SQL_SERVER}
+                    """
                 }
             }
         }
-                
+        
         stage('Confirm Destruction') {
             steps {
                 script {
                     timeout(time: 2, unit: 'MINUTES') {
                         input(
-                            message: "CONFIRM DESTRUCTION OF ${env.DEPLOYMENT_ID}?",
+                            message: "CONFIRM DESTRUCTION OF DEPLOYMENT ${env.DEPLOYMENT_ID}?",
                             ok: "Destroy Resources",
                             parameters: [
                                 text(
@@ -60,6 +70,7 @@ pipeline {
             }
         }
 
+        // [Keep all your existing destruction stages unchanged]
         stage('Terraform Destroy') {
             steps {
                 dir('terraform') {
@@ -113,7 +124,7 @@ pipeline {
                 Destruction ${currentBuild.currentResult}
                 
                 Deployment ID: ${env.DEPLOYMENT_ID}
-                Original Build: #${params.SOURCE_BUILD}
+                Original Build: #${params.SOURCE_BUILD_NUMBER}
                 Resources Destroyed:
                 - Resource Group: ${env.RESOURCE_GROUP}
                 - ACR: ${env.ACR_NAME}
@@ -125,11 +136,4 @@ pipeline {
             to: "athawerani@gmail.com"
         }
     }
-}
-
-// Helper function (or use the string parameter alternative if this doesn't work)
-def getSuccessfulBuilds() {
-    def job = Jenkins.instance.getItemByFullName('paymentgateway-create')
-    def builds = job.getBuilds().findAll { it.result == Result.SUCCESS }
-    return builds.collect { it.number.toString() }.take(20).reverse()
 }
