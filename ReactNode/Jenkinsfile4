@@ -16,14 +16,18 @@ pipeline {
         stage('Fetch Deployment Info') {
             steps {
                 script {
-                    // Step 1: Copy parameters file from source build
+                    // Use build number directly without 'specific' selector
                     copyArtifacts(
-                        projectName: 'paymentgateway-create', // Match your create job name
+                        projectName: 'paymentgateway-create',
                         filter: 'deployment_params.json',
-                        selector: specific(params.SOURCE_BUILD_NUMBER)
+                        selector: buildParameter('SOURCE_BUILD_NUMBER')
                     )
                     
-                    // Step 2: Load all parameters from the file
+                    // Load parameters from file
+                    if (!fileExists('deployment_params.json')) {
+                        error("Failed to find deployment parameters for build ${params.SOURCE_BUILD_NUMBER}")
+                    }
+                    
                     def deployInfo = readJSON file: 'deployment_params.json'
                     env.DEPLOYMENT_ID = deployInfo.deployment_id
                     env.RESOURCE_GROUP = deployInfo.resource_group
@@ -32,19 +36,12 @@ pipeline {
                     env.ACR_NAME = deployInfo.acr_name
                     env.SQL_SERVER = deployInfo.sql_server
                     
-                    // Step 3: Verify we got the parameters
-                    if (!env.RESOURCE_GROUP?.trim()) {
-                        error("Failed to load deployment parameters from build ${params.SOURCE_BUILD_NUMBER}")
-                    }
-                    
                     currentBuild.displayName = "DESTROY-${env.DEPLOYMENT_ID}"
                     echo """
                     Loaded deployment to destroy:
                     - Deployment ID: ${env.DEPLOYMENT_ID}
                     - Resource Group: ${env.RESOURCE_GROUP}
                     - Storage Account: ${env.STORAGE_ACCOUNT}
-                    - ACR: ${env.ACR_NAME}
-                    - SQL Server: ${env.SQL_SERVER}
                     """
                 }
             }
@@ -70,7 +67,6 @@ pipeline {
             }
         }
 
-        // [Keep all your existing destruction stages unchanged]
         stage('Terraform Destroy') {
             steps {
                 dir('terraform') {
@@ -92,27 +88,19 @@ pipeline {
         stage('Cleanup Azure Resources') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    script {
-                        // Delete ACR
-                        bat """
-                            az acr delete --name ${env.ACR_NAME} --resource-group ${env.RESOURCE_GROUP} --yes || echo "ACR already deleted"
-                        """
+                    bat """
+                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
+                        az account set --subscription ${AZURE_SUBSCRIPTION}
                         
-                        // Delete storage account
-                        bat """
-                            az storage account delete --name ${env.STORAGE_ACCOUNT} --resource-group ${env.RESOURCE_GROUP} --yes || echo "Storage already deleted"
-                        """
+                        echo "Deleting ACR ${env.ACR_NAME}..."
+                        az acr delete --name ${env.ACR_NAME} --resource-group ${env.RESOURCE_GROUP} --yes || echo "ACR already deleted"
                         
-                        // Delete SQL server
-                        bat """
-                            az sql server delete --name ${env.SQL_SERVER} --resource-group ${env.RESOURCE_GROUP} --yes || echo "SQL server already deleted"
-                        """
+                        echo "Deleting storage account ${env.STORAGE_ACCOUNT}..."
+                        az storage account delete --name ${env.STORAGE_ACCOUNT} --resource-group ${env.RESOURCE_GROUP} --yes || echo "Storage already deleted"
                         
-                        // Finally delete resource group
-                        bat """
-                            az group delete --name ${env.RESOURCE_GROUP} --yes --no-wait
-                        """
-                    }
+                        echo "Deleting resource group ${env.RESOURCE_GROUP}..."
+                        az group delete --name ${env.RESOURCE_GROUP} --yes --no-wait
+                    """
                 }
             }
         }
@@ -128,7 +116,7 @@ pipeline {
                 Resources Destroyed:
                 - Resource Group: ${env.RESOURCE_GROUP}
                 - ACR: ${env.ACR_NAME}
-                - SQL: ${env.SQL_SERVER}
+                - Storage: ${env.STORAGE_ACCOUNT}
                 
                 Jenkins build: ${BUILD_URL}
             """,
