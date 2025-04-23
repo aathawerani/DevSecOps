@@ -36,18 +36,26 @@ pipeline {
         stage('Identify Terraform-Managed Resources') {
             steps {
                 script {
-                    // Find all resource groups with Terraform tags
+                    // Corrected query syntax for Azure CLI
                     def tfResourceGroups = bat(
-                        script: 'az group list --query "[?tags.\'created-by\'==\'terraform\'].name" -o tsv',
+                        script: 'az group list --query "[?tags.\`created-by\`==\`terraform\`].name" -o tsv',
                         returnStdout: true
-                    ).trim().split('\n')
+                    ).trim()
 
-                    // Store for later use
-                    env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
+                    // Split into array and filter out empty lines
+                    tfResourceGroups = tfResourceGroups.split('\n').findAll { it.trim() }
+
+                    if (tfResourceGroups) {
+                        echo "Found Terraform-managed resource groups: ${tfResourceGroups.join(', ')}"
+                        env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
+                    } else {
+                        echo "No Terraform-managed resource groups found"
+                        env.TF_RESOURCE_GROUPS = ''
+                    }
                 }
             }
         }
-
+        
         stage('Terraform Destroy') {
             when {
                 expression { env.TF_RESOURCE_GROUPS?.trim() }
