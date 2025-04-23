@@ -22,17 +22,17 @@ pipeline {
                     }
                     
                     // Step 2: Manually construct the artifact path
-                    def artifactPath = "${env.JENKINS_HOME}\\workspace\\DevSecOps4\\deployment_params.json"
+                    //def artifactPath = "${env.JENKINS_HOME}\\workspace\\DevSecOps4\\deployment_params.json"
                     
                     // Step 3: Copy the file using native commands
-                    bat """
+                    /*bat """
                         if exist "${artifactPath}" (
                             copy /Y "${artifactPath}" .
                         ) else (
                             echo File not found: ${artifactPath}
                             exit 1
                         )
-                    """
+                    """*/
                     
                     // Step 4: Verify and load the parameters
                     if (!fileExists('deployment_params.json')) {
