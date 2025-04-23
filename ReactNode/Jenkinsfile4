@@ -1,11 +1,5 @@
 pipeline {
     agent any
-    parameters {
-        string(
-            name: 'SOURCE_BUILD_NUMBER',
-            description: 'Enter the build number from DevSecOps4 create pipeline'
-        )
-    }
     
     environment {
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
@@ -16,27 +10,10 @@ pipeline {
         stage('Fetch Deployment Info') {
             steps {
                 script {
-                    // Step 1: Verify build number was provided
-                    if (!params.SOURCE_BUILD_NUMBER?.trim()) {
-                        error("Please provide a source build number")
-                    }
-                    
-                    // Step 2: Manually construct the artifact path
-                    //def artifactPath = "${env.JENKINS_HOME}\\workspace\\DevSecOps4\\deployment_params.json"
-                    
-                    // Step 3: Copy the file using native commands
-                    /*bat """
-                        if exist "${artifactPath}" (
-                            copy /Y "${artifactPath}" .
-                        ) else (
-                            echo File not found: ${artifactPath}
-                            exit 1
-                        )
-                    """*/
                     
                     // Step 4: Verify and load the parameters
                     if (!fileExists('deployment_params.json')) {
-                        error("Failed to find deployment parameters for build ${params.SOURCE_BUILD_NUMBER}")
+                        error("Failed to find deployment parameters")
                     }
                     
                     def deployInfo = readJSON file: 'deployment_params.json'
@@ -101,7 +78,6 @@ pipeline {
                 Destruction ${currentBuild.currentResult}
                 
                 Deployment ID: ${env.DEPLOYMENT_ID}
-                Original Build: #${params.SOURCE_BUILD_NUMBER}
                 Resources Destroyed:
                 - Resource Group: ${env.RESOURCE_GROUP}
                 - ACR: ${env.ACR_NAME}
