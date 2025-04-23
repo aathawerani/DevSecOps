@@ -34,19 +34,27 @@ pipeline {
         }
         
         stage('Terraform Destroy') {
-            steps {
-                dir('ReactNode/terraform') {
-                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        bat """
-                            D:\\DevOps\\terraform\\terraform init -reconfigure ^
-                                -backend-config="resource_group_name=${env.RESOURCE_GROUP}" ^
-                                -backend-config="storage_account_name=${env.STORAGE_ACCOUNT}" ^
-                                -backend-config="container_name=tfstate" ^
-                                -backend-config="key=${env.TF_STATE_KEY}"
-                            
-                            D:\\DevOps\\terraform\\terraform destroy -auto-approve
-                        """
+            script{
+                try{
+                    steps {
+                        dir('ReactNode/terraform') {
+                            withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                                bat """
+                                    D:\\DevOps\\terraform\\terraform init -reconfigure ^
+                                        -backend-config="resource_group_name=${env.RESOURCE_GROUP}" ^
+                                        -backend-config="storage_account_name=${env.STORAGE_ACCOUNT}" ^
+                                        -backend-config="container_name=tfstate" ^
+                                        -backend-config="key=${env.TF_STATE_KEY}"
+                                    
+                                    D:\\DevOps\\terraform\\terraform destroy -auto-approve
+                                """
+                            }
+                        }
                     }
+                }
+                catch (Exception e)
+                {
+                    echo "Got exception"
                 }
             }
         }
