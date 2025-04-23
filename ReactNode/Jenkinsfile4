@@ -58,7 +58,7 @@ pipeline {
         
         stage('Terraform Destroy') {
             steps {
-                dir('terraform') {
+                dir('ReactNode/terraform') {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                         bat """
                             D:\\DevOps\\terraform\\terraform init -reconfigure ^
