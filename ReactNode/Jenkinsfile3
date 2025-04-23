@@ -23,6 +23,32 @@ pipeline {
         FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
         BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
         IMAGE_TAG = "latest"
+
+    }
+
+    stage('Package Deployment Info') {
+        steps {
+            script {
+                // Generate unique deployment ID
+                env.DEPLOYMENT_ID = "deploy-${UUID.randomUUID().toString().take(8)}"
+                
+                // Store all critical parameters in a file
+                writeJSON file: 'deployment_params.json', json: [
+                    resource_group: env.RESOURCE_GROUP,
+                    storage_account: env.STORAGE_ACCOUNT,
+                    acr_name: env.AZURE_REGISTRY,
+                    tf_state_key: "${env.RESOURCE_GROUP}.tfstate",
+                    deployment_id: env.DEPLOYMENT_ID,
+                    build_number: env.BUILD_NUMBER
+                ]
+                
+                // Archive for destroy pipeline to access
+                archiveArtifacts artifacts: 'deployment_params.json'
+                
+                // Make build display name more informative
+                currentBuild.displayName = "DEPLOY-${env.BUILD_NUMBER}-${env.DEPLOYMENT_ID}"
+            }
+        }
     }
     
     stages {

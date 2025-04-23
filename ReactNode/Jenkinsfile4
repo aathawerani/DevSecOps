@@ -1,13 +1,51 @@
+def getSuccessfulBuilds() {
+    def job = Jenkins.instance.getItemByFullName('paymentgateway-create') // Your create job
+    def builds = job.getBuilds().findAll { it.result == Result.SUCCESS }
+    return builds.collect { it.number.toString() }.take(20) // Last 20 successful builds
+}
+
 pipeline {
     agent any
+
+    parameters {
+        choice(
+            name: 'SOURCE_BUILD',
+            choices: getSuccessfulBuilds(),
+            description: 'Select which deployment to destroy'
+        )
+    }
 
     environment {
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
-        TF_STATE_RESOURCE_GROUP = 'terraform-state-rg' // RG containing Terraform state storage
-        TF_STATE_STORAGE_ACCOUNT = 'tfstatesa'        // Storage account for Terraform state
-        TF_STATE_CONTAINER = 'tfstate'                // Container for Terraform state
     }
+
+    stages {
+        stage('Fetch Parameters') {
+            steps {
+                script {
+                    // Copy parameters from selected build
+                    copyArtifacts(
+                        projectName: 'DecSecOps4', // Your create job name
+                        filter: 'deployment_params.json',
+                        selector: specific(params.SOURCE_BUILD)
+                    
+                    // Load parameters
+                    def params = readJSON file: 'deployment_params.json'
+                    env.RESOURCE_GROUP = params.resource_group
+                    env.STORAGE_ACCOUNT = params.storage_account
+                    env.TF_STATE_KEY = params.tf_state_key
+                    env.DEPLOYMENT_ID = params.deployment_id
+                    
+                    echo """
+                    Preparing to destroy deployment:
+                    - Build Number: ${params.SOURCE_BUILD}
+                    - Deployment ID: ${env.DEPLOYMENT_ID}
+                    - Resource Group: ${env.RESOURCE_GROUP}
+                    """
+                }
+            }
+        }
 
     stages {
         stage('Checkout Code') {
@@ -47,7 +85,7 @@ pipeline {
                 }
             }
         }
-                
+
         stage('Terraform Destroy') {
             when {
                 expression { env.TF_RESOURCE_GROUPS?.trim() }
