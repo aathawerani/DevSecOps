@@ -9,14 +9,15 @@ pipeline {
         // Azure Configuration
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
-        AZURE_REGISTRY = 'devsecops'
         LOCATION = 'eastus'
         
         // Resource Naming
-        RESOURCE_GROUP = "pg-demo"
-        STORAGE_ACCOUNT = "pgdemostorage"
-        SQL_SERVER_NAME = "sql-server-pg"
-        SQL_DB_NAME = "paymentgateway"
+        DEPLOYMENT_ID = "pg-${UUID.randomUUID().toString().substring(0,8)}"
+        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
+        STORAGE_ACCOUNT = "sa${DEPLOYMENT_ID.replace('-','')}" // Storage accounts can't have hyphens
+        AZURE_REGISTRY = "acr${DEPLOYMENT_ID.replace('-','')}" // ACR names must be alphanumeric
+        SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
+        SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
         SQL_ADMIN_USER = "sa"
         
         // Image Configuration
@@ -28,37 +29,42 @@ pipeline {
     
     stages {
 
-        stage('Package Deployment Info') {
-            steps {
-                script {
-                    // Generate unique deployment ID
-                    env.DEPLOYMENT_ID = "deploy-${UUID.randomUUID().toString().take(8)}"
-                    
-                    // Store all critical parameters in a file
-                    writeJSON file: 'deployment_params.json', json: [
-                        resource_group: env.RESOURCE_GROUP,
-                        storage_account: env.STORAGE_ACCOUNT,
-                        acr_name: env.AZURE_REGISTRY,
-                        tf_state_key: "${env.RESOURCE_GROUP}.tfstate",
-                        deployment_id: env.DEPLOYMENT_ID,
-                        build_number: env.BUILD_NUMBER
-                    ]
-                    
-                    // Archive for destroy pipeline to access
-                    archiveArtifacts artifacts: 'deployment_params.json'
-                    
-                    // Make build display name more informative
-                    currentBuild.displayName = "DEPLOY-${env.BUILD_NUMBER}-${env.DEPLOYMENT_ID}"
-                }
-            }
-        }
-
         stage('Checkout') {
             steps {
                 script {
                     failedStage = "Checkout"
                 }
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
+            }
+        }
+
+        stage('Package Deployment Info') {
+            steps {
+                script {
+                    // Store all critical parameters in a file
+                    writeJSON file: 'deployment_params.json', json: [
+                        deployment_id: env.DEPLOYMENT_ID,
+                        resource_group: env.RESOURCE_GROUP,
+                        storage_account: env.STORAGE_ACCOUNT,
+                        acr_name: env.AZURE_REGISTRY,
+                        sql_server: env.SQL_SERVER_NAME,
+                        sql_db: env.SQL_DB_NAME,
+                        tf_state_key: "terraform.tfstate",
+                        build_number: env.BUILD_NUMBER,
+                        build_url: env.BUILD_URL,
+                        app_url: "", // Will be updated later
+                        sql_connection: "" // Will be updated later
+                    ]
+                    
+                    // Make build display name more informative
+                    currentBuild.displayName = "DEPLOY-${env.DEPLOYMENT_ID}"
+                    currentBuild.description = """
+                        Deployment ID: ${env.DEPLOYMENT_ID}
+                        Resource Group: ${env.RESOURCE_GROUP}
+                        Storage Account: ${env.STORAGE_ACCOUNT}
+                        ACR: ${env.AZURE_REGISTRY}
+                    """.stripIndent().trim()
+                }
             }
         }
 
@@ -199,22 +205,46 @@ pipeline {
                 }
             }
         }
+
+        stage('Update Deployment Info') {
+            steps {
+                script {
+                    // Read existing params
+                    def params = readJSON file: 'deployment_params.json'
+                    
+                    // Update with outputs
+                    params.app_url = env.APP_URL
+                    params.sql_connection = env.SQL_CONNECTION_STRING
+                    
+                    // Write back
+                    writeJSON file: 'deployment_params.json', json: params
+                    
+                    // Final archive
+                    archiveArtifacts artifacts: 'deployment_params.json'
+                }
+            }
+        }
     }
     
     post {
         always {
-            emailext body: """
-                Deployment ${currentBuild.currentResult} for Build ${BUILD_NUMBER}
-                
-                Application URL: ${env.APP_URL}
-                SQL Server: ${SQL_SERVER_NAME}.database.windows.net
-                
-                ${env.DEPLOYMENT_INFO}
-                
-                Jenkins build: ${BUILD_URL}
-            """,
-            subject: "Deployment ${currentBuild.currentResult}: PaymentGateway ${BUILD_NUMBER}",
-            to: "athawerani@gmail.com"            
+            script {
+                def params = readJSON file: 'deployment_params.json'
+                emailext body: """
+                    Deployment ${currentBuild.currentResult} - ${params.deployment_id}
+                    
+                    Application URL: ${params.app_url}
+                    SQL Server: ${params.sql_server}.database.windows.net
+                    
+                    To destroy this deployment:
+                    1. Go to the 'paymentgateway-destroy' pipeline
+                    2. Select build #${params.build_number}
+                    
+                    Jenkins build: ${params.build_url}
+                """,
+                subject: "Deployment ${currentBuild.currentResult}: ${params.deployment_id}",
+                to: "athawerani@gmail.com"
+            }
         }
     }
 }

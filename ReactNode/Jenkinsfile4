@@ -1,12 +1,5 @@
-def getSuccessfulBuilds() {
-    def job = Jenkins.instance.getItemByFullName('paymentgateway-create') // Your create job
-    def builds = job.getBuilds().findAll { it.result == Result.SUCCESS }
-    return builds.collect { it.number.toString() }.take(20) // Last 20 successful builds
-}
-
 pipeline {
     agent any
-
     parameters {
         choice(
             name: 'SOURCE_BUILD',
@@ -14,181 +7,126 @@ pipeline {
             description: 'Select which deployment to destroy'
         )
     }
-
+    
     environment {
         AZURE_CREDENTIALS_ID = 'azure-prod-sp'
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
     }
 
     stages {
-        stage('Fetch Parameters') {
+        stage('Fetch Deployment Info') {
             steps {
                 script {
                     // Copy parameters from selected build
                     copyArtifacts(
-                        projectName: 'DecSecOps4', // Your create job name
+                        projectName: 'paymentgateway-create',
                         filter: 'deployment_params.json',
-                        selector: specific(params.SOURCE_BUILD)
+                        selector: specific(params.SOURCE_BUILD))
                     
                     // Load parameters
-                    def params = readJSON file: 'deployment_params.json'
-                    env.RESOURCE_GROUP = params.resource_group
-                    env.STORAGE_ACCOUNT = params.storage_account
-                    env.TF_STATE_KEY = params.tf_state_key
-                    env.DEPLOYMENT_ID = params.deployment_id
+                    def deployInfo = readJSON file: 'deployment_params.json'
+                    env.DEPLOYMENT_ID = deployInfo.deployment_id
+                    env.RESOURCE_GROUP = deployInfo.resource_group
+                    env.STORAGE_ACCOUNT = deployInfo.storage_account
+                    env.TF_STATE_KEY = deployInfo.tf_state_key
+                    env.ACR_NAME = deployInfo.acr_name
+                    env.SQL_SERVER = deployInfo.sql_server
                     
-                    echo """
-                    Preparing to destroy deployment:
-                    - Build Number: ${params.SOURCE_BUILD}
-                    - Deployment ID: ${env.DEPLOYMENT_ID}
-                    - Resource Group: ${env.RESOURCE_GROUP}
-                    """
+                    currentBuild.displayName = "DESTROY-${env.DEPLOYMENT_ID}"
                 }
             }
         }
-
-        stage('Checkout Code') {
-            steps {
-                checkout([$class: 'GitSCM', 
-                         branches: [[name: 'main']],
-                         userRemoteConfigs: [[
-                             credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f',
-                             url: 'https://github.com/aathawerani/DevSecOps.git'
-                         ]]
-                ])
-            }
-        }
-
-        stage('Azure Login') {
-            steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat '''
-                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
-                        az account set --subscription %AZURE_SUBSCRIPTION%
-                    '''
-                }
-            }
-        }
-
-        stage('Identify Terraform-Managed Resources') {
+        
+        stage('Confirm Destruction') {
             steps {
                 script {
-                    // This works for most tag formats
-                    def tfResourceGroups = bat(
-                        script: 'az group list --query "[?tags.createdBy == \'terraform\'].name" -o tsv',
-                        returnStdout: true
-                    ).trim().split('\n').findAll { it.trim() }
-                    
-                    env.TF_RESOURCE_GROUPS = tfResourceGroups.join(',')
-                    echo "Found Terraform RGs: ${env.TF_RESOURCE_GROUPS}"
+                    timeout(time: 2, unit: 'MINUTES') {
+                        input(
+                            message: "CONFIRM DESTRUCTION OF ${env.DEPLOYMENT_ID}?",
+                            ok: "Destroy Resources",
+                            parameters: [
+                                text(
+                                    name: 'CONFIRMATION',
+                                    defaultValue: 'Type \"destroy ${env.DEPLOYMENT_ID}\" to confirm',
+                                    description: 'Safety check'
+                                )
+                            ]
+                        )
+                    }
                 }
             }
         }
 
         stage('Terraform Destroy') {
-            when {
-                expression { env.TF_RESOURCE_GROUPS?.trim() }
-            }
             steps {
-                script {
-                    dir('ReactNode/terraform') {
-                        withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                            // Initialize Terraform with remote state
-                            bat """
-                                D:\\DevOps\\terraform\\terraform init ^
-                                    -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" ^
-                                    -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" ^
-                                    -backend-config="container_name=${TF_STATE_CONTAINER}" ^
-                                    -backend-config="key=terraform.tfstate"
-                                
-                                D:\\DevOps\\terraform\\terraform destroy -auto-approve
-                            """
-                        }
+                dir('terraform') {
+                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                        bat """
+                            D:\\DevOps\\terraform\\terraform init -reconfigure ^
+                                -backend-config="resource_group_name=${env.RESOURCE_GROUP}" ^
+                                -backend-config="storage_account_name=${env.STORAGE_ACCOUNT}" ^
+                                -backend-config="container_name=tfstate" ^
+                                -backend-config="key=${env.TF_STATE_KEY}"
+                            
+                            D:\\DevOps\\terraform\\terraform destroy -auto-approve
+                        """
                     }
                 }
             }
         }
 
-        stage('Delete All Resource Groups') {
+        stage('Cleanup Azure Resources') {
             steps {
-                script {
-                    // Get all resource groups (including non-Terraform ones)
-                    def allResourceGroups = bat(
-                        script: 'az group list --query "[].name" -o tsv',
-                        returnStdout: true
-                    ).trim().split('\n')
-
-                    // Delete each resource group
-                    allResourceGroups.each { rg ->
-                        if (rg && !rg.startsWith('NetworkWatcherRG')) { // Skip Azure default RGs
-                            bat """
-                                echo "Deleting resource group: ${rg}"
-                                az group delete --name "${rg}" --yes --no-wait
-                            """
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Cleanup Orphaned Resources') {
-            steps {
-                script {
-                    // Delete ungrouped resources
-                    bat '''
-                        echo "Cleaning up orphaned resources..."
-                        az resource list --query "[?resourceGroup==null].id" -o tsv | % {
-                            if ($_) { az resource delete --ids $_ --verbose }
-                        }
-                    '''
-
-                    // Clean up Terraform state storage if empty
-                    bat """
-                        az storage container delete --name ${TF_STATE_CONTAINER} ^
-                            --account-name ${TF_STATE_STORAGE_ACCOUNT} ^
-                            --yes || echo "Container already deleted or doesn't exist"
-                    """
-                }
-            }
-        }
-
-        stage('Verify Cleanup') {
-            steps {
-                script {
-                    def remainingRGs = bat(
-                        script: 'az group list --query "[].name" -o tsv',
-                        returnStdout: true
-                    ).trim().split('\n')
-
-                    remainingRGs = remainingRGs.findAll { it && !it.startsWith('NetworkWatcherRG') }
-
-                    if (remainingRGs) {
-                        error("Cleanup incomplete! Remaining RGs: ${remainingRGs.join(', ')}")
-                    } else {
-                        echo "All resources successfully deleted"
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    script {
+                        // Delete ACR
+                        bat """
+                            az acr delete --name ${env.ACR_NAME} --resource-group ${env.RESOURCE_GROUP} --yes || echo "ACR already deleted"
+                        """
+                        
+                        // Delete storage account
+                        bat """
+                            az storage account delete --name ${env.STORAGE_ACCOUNT} --resource-group ${env.RESOURCE_GROUP} --yes || echo "Storage already deleted"
+                        """
+                        
+                        // Delete SQL server
+                        bat """
+                            az sql server delete --name ${env.SQL_SERVER} --resource-group ${env.RESOURCE_GROUP} --yes || echo "SQL server already deleted"
+                        """
+                        
+                        // Finally delete resource group
+                        bat """
+                            az group delete --name ${env.RESOURCE_GROUP} --yes --no-wait
+                        """
                     }
                 }
             }
         }
     }
-
+    
     post {
         always {
             emailext body: """
-                Azure Resource Cleanup ${currentBuild.currentResult}
+                Destruction ${currentBuild.currentResult}
                 
-                Terraform Resource Groups: ${env.TF_RESOURCE_GROUPS ?: 'NONE'}
+                Deployment ID: ${env.DEPLOYMENT_ID}
+                Original Build: #${params.SOURCE_BUILD}
+                Resources Destroyed:
+                - Resource Group: ${env.RESOURCE_GROUP}
+                - ACR: ${env.ACR_NAME}
+                - SQL: ${env.SQL_SERVER}
                 
-                Build URL: ${BUILD_URL}
-                Console Output: ${BUILD_URL}console
+                Jenkins build: ${BUILD_URL}
             """,
-            subject: "Azure Cleanup ${currentBuild.currentResult}",
-            to: "athawerani@gmail.com",
-            attachLog: true
-        }
-        
-        cleanup {
-            bat 'az logout'
+            subject: "Destruction ${currentBuild.currentResult}: ${env.DEPLOYMENT_ID}",
+            to: "athawerani@gmail.com"
         }
     }
+}
+
+// Helper function (or use the string parameter alternative if this doesn't work)
+def getSuccessfulBuilds() {
+    def job = Jenkins.instance.getItemByFullName('paymentgateway-create')
+    def builds = job.getBuilds().findAll { it.result == Result.SUCCESS }
+    return builds.collect { it.number.toString() }.take(20).reverse()
 }
