@@ -22,7 +22,7 @@ pipeline {
                     }
                     
                     // Step 2: Manually construct the artifact path
-                    def artifactPath = "${env.JENKINS_HOME}\\workspace\\DevSecOps4\\builds\\${params.SOURCE_BUILD_NUMBER}\\archive\\deployment_params.json"
+                    def artifactPath = "${env.JENKINS_HOME}\\workspace\\DevSecOps4\\deployment_params.json"
                     
                     // Step 3: Copy the file using native commands
                     bat """
