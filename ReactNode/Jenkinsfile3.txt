@@ -11,29 +11,45 @@ pipeline {
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
         LOCATION = 'eastus'
         
-        // Resource Naming
-        DEPLOYMENT_ID = "pg-${UUID.randomUUID().toString().substring(0,8)}"
-        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
-        STORAGE_ACCOUNT = "sa${DEPLOYMENT_ID.replace('-','')}" // Storage accounts can't have hyphens
-        AZURE_REGISTRY = "acr${DEPLOYMENT_ID.replace('-','')}" // ACR names must be alphanumeric
-        SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
-        SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
-        SQL_ADMIN_USER = "sa"
-        
+        uuidPart = "${UUID.randomUUID().toString().substring(0,8)}"
+
         // Image Configuration
-        FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
-        BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
         IMAGE_TAG = "latest"
 
+        SQL_ADMIN_USER = "sa"
     }
     
     stages {
 
-        stage('Checkout') {
+        stage('Setup Variables') {
             steps {
                 script {
-                    failedStage = "Checkout"
+                    // Generate once
+                    //def uuidPart = UUID.randomUUID().toString().substring(0,8)
+                    
+                    // Set all env vars consistently
+                    env.DEPLOYMENT_ID = "pg-${uuidPart}"
+                    env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
+                    env.STORAGE_ACCOUNT = "sa${uuidPart}"
+                    env.AZURE_REGISTRY = "acr${uuidPart}"
+                    env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
+                    env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
+                    env.SQL_SERVER_NAME = "sql-${env.DEPLOYMENT_ID}"
+                    env.SQL_DB_NAME = "db-${env.DEPLOYMENT_ID}"
+
+                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+
                 }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
@@ -90,21 +106,21 @@ pipeline {
                         call az storage container create ^
                             --name tfstate ^
                             --account-name ${STORAGE_ACCOUNT} 
-                    """
-                }
-            }
-        }
 
-        stage('Create Azure Container Registry') {
-            steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """                        
-                        az acr create --name ${AZURE_REGISTRY} ^
+                        call az acr create --name ${AZURE_REGISTRY} ^
                             --resource-group ${RESOURCE_GROUP} ^
                             --sku Basic ^
                             --admin-enabled true ^
                             --location ${LOCATION}
+
                     """
+
+                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
                 }
             }
         }
@@ -136,19 +152,28 @@ pipeline {
         
         stage('Push to Azure Container Registry') {
             steps {
+                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        call az acr login --name ${AZURE_REGISTRY}
-                        call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                        call docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-                    """
+                    retry(3) {
+                        bat """
+                            call az acr login --name ${AZURE_REGISTRY} || exit /b 1
+                            call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG} || exit /b 1
+                            call docker push ${BACKEND_IMAGE}:${IMAGE_TAG} || exit /b 1
+                        """
+                    }
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir('ReactNode/terraform') {
+                dir('terraform') {
                     withCredentials([
                         azureServicePrincipal(AZURE_CREDENTIALS_ID), 
                         usernamePassword(
@@ -158,7 +183,6 @@ pipeline {
                         )
                     ]) {
                         bat """
-
                             call az login --service-principal ^
                             -u ${AZURE_CLIENT_ID} ^
                             -p ${AZURE_CLIENT_SECRET} ^
@@ -169,7 +193,11 @@ pipeline {
                                 -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
                                 -backend-config="storage_account_name=${STORAGE_ACCOUNT}" ^
                                 -backend-config="container_name=tfstate" ^
-                                -backend-config="key=${RESOURCE_GROUP}.tfstate"
+                                -backend-config="key=paymentgateway.tfstate" ^
+                                -backend-config="subscription_id=${AZURE_SUBSCRIPTION}" ^
+                                -reconfigure
+
+                            D:\\DevOps\\terraform\\terraform import azurerm_resource_group.main /subscriptions/${AZURE_SUBSCRIPTION}/resourceGroups/${RESOURCE_GROUP}
                             
                             D:\\DevOps\\terraform\\terraform apply -auto-approve ^
                                 -var="resource_group_name=${RESOURCE_GROUP}" ^
@@ -181,13 +209,13 @@ pipeline {
                                 -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="acr_name=${AZURE_REGISTRY}" ^
-                                -var="storage_account_name=${STORAGE_ACCOUNT}"
+                                -var="storage_account_name=${STORAGE_ACCOUNT}" ^
+                                -var=\"azure_subscription_id=${AZURE_SUBSCRIPTION}"
                         """
                     }
                 }
             }
         }
-
         stage('Get Endpoints') {
             steps {
                 dir('terraform') {

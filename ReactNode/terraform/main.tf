@@ -3,7 +3,8 @@ terraform {
     resource_group_name  = var.resource_group_name
     storage_account_name = var.storage_account_name
     container_name       = "tfstate"
-    key                  = "paymentgateway.tfstate"
+    key                  = "paymentgateway-${var.resource_group_name}.tfstate"  # Unique per deployment
+    subscription_id      = var.azure_subscription_id  # Add this line
   }
 }
 
