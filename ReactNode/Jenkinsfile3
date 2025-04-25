@@ -60,6 +60,31 @@ pipeline {
             }
         }
 
+        stage('Setup Variables') {
+            steps {
+                script {
+                    // Generate once
+                    def uuidPart = UUID.randomUUID().toString().substring(0,8)
+                    
+                    // Set all env vars consistently
+                    env.DEPLOYMENT_ID = "pg-${uuidPart}"
+                    env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
+                    env.STORAGE_ACCOUNT = "sa${uuidPart}"
+                    env.AZURE_REGISTRY = "acr${uuidPart}"
+                    env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
+                    env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
+
+                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+                    
+                }
+            }
+        }
+
         stage('Package Deployment Info') {
             steps {
                 script {
