@@ -42,6 +42,14 @@ pipeline {
                     env.SQL_DB_NAME = "db-${deploymentId}"
                     env.FRONTEND_IMAGE = "${azureRegistry}.azurecr.io/frontend-app"
                     env.BACKEND_IMAGE = "${azureRegistry}.azurecr.io/backend-app"
+
+                    echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
+                    echo "RESOURCE_GROUP: ${env.RESOURCE_GROUP}"
+                    echo "STORAGE_ACCOUNT: ${env.STORAGE_ACCOUNT}"
+                    echo "AZURE_REGISTRY: ${env.AZURE_REGISTRY}"
+                    echo "FRONTEND_IMAGE: ${env.FRONTEND_IMAGE}"
+                    echo "BACKEND_IMAGE: ${env.BACKEND_IMAGE}"
+
                 }
 
                 echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
