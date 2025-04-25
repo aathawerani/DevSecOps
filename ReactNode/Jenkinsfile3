@@ -30,6 +30,14 @@ pipeline {
 
         stage('Checkout') {
             steps {
+
+                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+                
                 script {
                     failedStage = "Checkout"
                 }
