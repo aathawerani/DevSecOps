@@ -23,6 +23,11 @@ provider "kubernetes" {
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
+
+  lifecycle {
+    prevent_destroy = false  # Allows destruction when needed
+    ignore_changes = [tags]  # Ignore tag changes made outside Terraform
+  }
 }
 
 resource "azurerm_container_registry" "acr" {

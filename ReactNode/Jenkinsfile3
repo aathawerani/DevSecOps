@@ -196,8 +196,6 @@ pipeline {
                                 -backend-config="key=paymentgateway-${RESOURCE_GROUP}.tfstate" ^
                                 -backend-config="subscription_id=${AZURE_SUBSCRIPTION}" ^
                                 -reconfigure
-
-                            D:\\DevOps\\terraform\\terraform import azurerm_resource_group.main /subscriptions/${AZURE_SUBSCRIPTION}/resourceGroups/${RESOURCE_GROUP}
                             
                             D:\\DevOps\\terraform\\terraform apply -auto-approve ^
                                 -var="resource_group_name=${RESOURCE_GROUP}" ^
