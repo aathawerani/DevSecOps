@@ -9,6 +9,7 @@ terraform {
 
 provider "azurerm" {
   features {}
+  subscription_id = var.azure_subscription_id  # Add this line
 }
 
 provider "kubernetes" {

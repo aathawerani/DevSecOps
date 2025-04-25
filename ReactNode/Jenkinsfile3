@@ -207,7 +207,8 @@ pipeline {
                                 -var="frontend_image=${FRONTEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="acr_name=${AZURE_REGISTRY}" ^
-                                -var="storage_account_name=${STORAGE_ACCOUNT}"
+                                -var="storage_account_name=${STORAGE_ACCOUNT}" ^
+                                -var=\"azure_subscription_id=${AZURE_SUBSCRIPTION}"
                         """
                     }
                 }
