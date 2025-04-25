@@ -29,14 +29,19 @@ pipeline {
             steps {
                 script {
                     def uid = UUID.randomUUID().toString().substring(0,8)
-                    env.DEPLOYMENT_ID = "pg-${uid}"
-                    env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
-                    env.STORAGE_ACCOUNT = "sa${env.DEPLOYMENT_ID.replace('-', '')}"
-                    env.AZURE_REGISTRY = "acr${env.DEPLOYMENT_ID.replace('-', '')}"
-                    env.SQL_SERVER_NAME = "sql-${env.DEPLOYMENT_ID}"
-                    env.SQL_DB_NAME = "db-${env.DEPLOYMENT_ID}"
-                    env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
-                    env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
+                    def deploymentId = "pg-${uid}"
+                    def resourceGroup = "rg-${deploymentId}"
+                    def storageAccount = "sa${deploymentId.replace('-', '')}"
+                    def azureRegistry = "acr${deploymentId.replace('-', '')}"
+
+                    env.DEPLOYMENT_ID = deploymentId
+                    env.RESOURCE_GROUP = resourceGroup
+                    env.STORAGE_ACCOUNT = storageAccount
+                    env.AZURE_REGISTRY = azureRegistry
+                    env.SQL_SERVER_NAME = "sql-${deploymentId}"
+                    env.SQL_DB_NAME = "db-${deploymentId}"
+                    env.FRONTEND_IMAGE = "${azureRegistry}.azurecr.io/frontend-app"
+                    env.BACKEND_IMAGE = "${azureRegistry}.azurecr.io/backend-app"
                 }
 
                 echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
