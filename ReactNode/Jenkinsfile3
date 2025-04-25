@@ -19,52 +19,26 @@ pipeline {
         // Image Configuration
         IMAGE_TAG = "latest"
 
-        UUID_PART = "${UUID.randomUUID().toString().substring(0,8)}"
+        uuidPart = "${UUID.randomUUID().toString().substring(0,8)}"
     
         // Then build all names from that
-        DEPLOYMENT_ID = "pg-${UUID_PART}"
-        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
-        STORAGE_ACCOUNT = "sa${UUID_PART}" // No hyphens to remove
-        AZURE_REGISTRY = "acr${UUID_PART}"
+        //DEPLOYMENT_ID = "pg-${UUID_PART}"
+        //RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
+        //STORAGE_ACCOUNT = "sa${UUID_PART}" // No hyphens to remove
+        //AZURE_REGISTRY = "acr${UUID_PART}"
         
         // These will now stay consistent
-        FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
-        BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
+        //FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
+        //BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
     }
     
     stages {
-
-        stage('Checkout') {
-            steps {
-
-                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
-                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
-                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
-                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
-                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
-
-                script {
-                    env.FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
-                    env.BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
-                }
-                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
-
-
-                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
-                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
-                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
-                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
-                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
-            }
-        }
 
         stage('Setup Variables') {
             steps {
                 script {
                     // Generate once
-                    def uuidPart = UUID.randomUUID().toString().substring(0,8)
+                    //def uuidPart = UUID.randomUUID().toString().substring(0,8)
                     
                     // Set all env vars consistently
                     env.DEPLOYMENT_ID = "pg-${uuidPart}"
@@ -80,8 +54,14 @@ pipeline {
                     echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
                     echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
                     echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
-                    
+
                 }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
 
