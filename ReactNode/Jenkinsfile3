@@ -12,18 +12,24 @@ pipeline {
         LOCATION = 'eastus'
         
         // Resource Naming
-        DEPLOYMENT_ID = "pg-${UUID.randomUUID().toString().substring(0,8)}"
-        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
-        STORAGE_ACCOUNT = "sa${DEPLOYMENT_ID.replace('-','')}" // Storage accounts can't have hyphens
-        AZURE_REGISTRY = "acr${DEPLOYMENT_ID.replace('-','')}" // ACR names must be alphanumeric
         SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
         SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
         SQL_ADMIN_USER = "sa"
         
         // Image Configuration
+        IMAGE_TAG = "latest"
+
+        UUID_PART = "${UUID.randomUUID().toString().substring(0,8)}"
+    
+        // Then build all names from that
+        DEPLOYMENT_ID = "pg-${UUID_PART}"
+        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
+        STORAGE_ACCOUNT = "sa${UUID_PART}" // No hyphens to remove
+        AZURE_REGISTRY = "acr${UUID_PART}"
+        
+        // These will now stay consistent
         FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
         BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
-        IMAGE_TAG = "latest"
     }
     
     stages {
@@ -44,7 +50,7 @@ pipeline {
                 }
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 
-                
+
                 echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
                 echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
                 echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
