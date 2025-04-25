@@ -12,48 +12,21 @@ pipeline {
         LOCATION = 'eastus'
         
         // Resource Naming
-        DEPLOYMENT_ID = ''
-        RESOURCE_GROUP = ''
-        STORAGE_ACCOUNT = ''
-        AZURE_REGISTRY = ''
-        SQL_SERVER_NAME = ''
-        SQL_DB_NAME = ''
-        FRONTEND_IMAGE = ''
-        BACKEND_IMAGE = ''
-        IMAGE_TAG = 'latest'
+        DEPLOYMENT_ID = "pg-${UUID.randomUUID().toString().substring(0,8)}"
+        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
+        STORAGE_ACCOUNT = "sa${DEPLOYMENT_ID.replace('-','')}" // Storage accounts can't have hyphens
+        AZURE_REGISTRY = "acr${DEPLOYMENT_ID.replace('-','')}" // ACR names must be alphanumeric
+        SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
+        SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
+        SQL_ADMIN_USER = "sa"
+        
+        // Image Configuration
+        FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
+        BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
+        IMAGE_TAG = "latest"
     }
     
     stages {
-
-        stage('Set Deployment Vars') {
-            steps {
-                script {
-                    def depId = "pg-${env.UUID}"
-                    env.DEPLOYMENT_ID = depId
-                    env.RESOURCE_GROUP = "rg-${depId}"
-                    env.STORAGE_ACCOUNT = "sa${depId.replace('-', '')}"
-                    env.AZURE_REGISTRY = "acr${depId.replace('-', '')}"
-                    env.SQL_SERVER_NAME = "sql-${depId}"
-                    env.SQL_DB_NAME = "db-${depId}"
-                    env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
-                    env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
-
-                    echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
-                    echo "RESOURCE_GROUP: ${env.RESOURCE_GROUP}"
-                    echo "STORAGE_ACCOUNT: ${env.STORAGE_ACCOUNT}"
-                    echo "AZURE_REGISTRY: ${env.AZURE_REGISTRY}"
-                    echo "FRONTEND_IMAGE: ${env.FRONTEND_IMAGE}"
-                    echo "BACKEND_IMAGE: ${env.BACKEND_IMAGE}"
-                }
-
-                echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
-                echo "RESOURCE_GROUP: ${env.RESOURCE_GROUP}"
-                echo "STORAGE_ACCOUNT: ${env.STORAGE_ACCOUNT}"
-                echo "AZURE_REGISTRY: ${env.AZURE_REGISTRY}"
-                echo "FRONTEND_IMAGE: ${env.FRONTEND_IMAGE}"
-                echo "BACKEND_IMAGE: ${env.BACKEND_IMAGE}"
-            }
-        }
 
         stage('Checkout') {
             steps {
@@ -66,9 +39,18 @@ pipeline {
                 echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
 
                 script {
-                    failedStage = "Checkout"
+                    env.FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
+                    env.BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
                 }
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
+
+                
+                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
             }
         }
 
