@@ -11,25 +11,12 @@ pipeline {
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
         LOCATION = 'eastus'
         
-        // Resource Naming
-        SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
-        SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
-        SQL_ADMIN_USER = "sa"
-        
+        uuidPart = "${UUID.randomUUID().toString().substring(0,8)}"
+
         // Image Configuration
         IMAGE_TAG = "latest"
 
-        uuidPart = "${UUID.randomUUID().toString().substring(0,8)}"
-    
-        // Then build all names from that
-        //DEPLOYMENT_ID = "pg-${UUID_PART}"
-        //RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
-        //STORAGE_ACCOUNT = "sa${UUID_PART}" // No hyphens to remove
-        //AZURE_REGISTRY = "acr${UUID_PART}"
-        
-        // These will now stay consistent
-        //FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
-        //BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
+        SQL_ADMIN_USER = "sa"
     }
     
     stages {
@@ -47,6 +34,8 @@ pipeline {
                     env.AZURE_REGISTRY = "acr${uuidPart}"
                     env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
                     env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
+                    env.SQL_SERVER_NAME = "sql-${env.DEPLOYMENT_ID}"
+                    env.SQL_DB_NAME = "db-${env.DEPLOYMENT_ID}"
 
                     echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
                     echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
