@@ -1,7 +1,3 @@
-variable "deployment_id" {
-  description = "Unique deployment identifier from Jenkins"
-  type        = string
-}
 
 variable "location" {
   description = "Azure region"
