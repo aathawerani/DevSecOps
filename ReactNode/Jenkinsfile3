@@ -12,21 +12,41 @@ pipeline {
         LOCATION = 'eastus'
         
         // Resource Naming
-        DEPLOYMENT_ID = "pg-${UUID.randomUUID().toString().substring(0,8)}"
-        RESOURCE_GROUP = "rg-${DEPLOYMENT_ID}"
-        STORAGE_ACCOUNT = "sa${DEPLOYMENT_ID.replace('-','')}" // Storage accounts can't have hyphens
-        AZURE_REGISTRY = "acr${DEPLOYMENT_ID.replace('-','')}" // ACR names must be alphanumeric
-        SQL_SERVER_NAME = "sql-${DEPLOYMENT_ID}"
-        SQL_DB_NAME = "db-${DEPLOYMENT_ID}"
-        SQL_ADMIN_USER = "sa"
-        
-        // Image Configuration
-        FRONTEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/frontend-app"
-        BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
-        IMAGE_TAG = "latest"
+        DEPLOYMENT_ID = ''
+        RESOURCE_GROUP = ''
+        STORAGE_ACCOUNT = ''
+        AZURE_REGISTRY = ''
+        SQL_SERVER_NAME = ''
+        SQL_DB_NAME = ''
+        FRONTEND_IMAGE = ''
+        BACKEND_IMAGE = ''
+        IMAGE_TAG = 'latest'
     }
     
     stages {
+
+        stage('Set Deployment Vars') {
+            steps {
+                script {
+                    def uid = UUID.randomUUID().toString().substring(0,8)
+                    env.DEPLOYMENT_ID = "pg-${uid}"
+                    env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
+                    env.STORAGE_ACCOUNT = "sa${env.DEPLOYMENT_ID.replace('-', '')}"
+                    env.AZURE_REGISTRY = "acr${env.DEPLOYMENT_ID.replace('-', '')}"
+                    env.SQL_SERVER_NAME = "sql-${env.DEPLOYMENT_ID}"
+                    env.SQL_DB_NAME = "db-${env.DEPLOYMENT_ID}"
+                    env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
+                    env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
+                }
+
+                echo "DEPLOYMENT_ID: ${env.DEPLOYMENT_ID}"
+                echo "RESOURCE_GROUP: ${env.RESOURCE_GROUP}"
+                echo "STORAGE_ACCOUNT: ${env.STORAGE_ACCOUNT}"
+                echo "AZURE_REGISTRY: ${env.AZURE_REGISTRY}"
+                echo "FRONTEND_IMAGE: ${env.FRONTEND_IMAGE}"
+                echo "BACKEND_IMAGE: ${env.BACKEND_IMAGE}"
+            }
+        }
 
         stage('Checkout') {
             steps {
@@ -37,7 +57,7 @@ pipeline {
                 echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
                 echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
                 echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
-                
+
                 script {
                     failedStage = "Checkout"
                 }
