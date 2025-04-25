@@ -25,6 +25,12 @@ pipeline {
         BACKEND_IMAGE = "${AZURE_REGISTRY}.azurecr.io/backend-app"
         IMAGE_TAG = "latest"
 
+        echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+        echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+        echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+        echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+        echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+        echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
     }
     
     stages {
@@ -98,6 +104,13 @@ pipeline {
                             --location ${LOCATION}
 
                     """
+
+                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
                 }
             }
         }
@@ -129,6 +142,13 @@ pipeline {
         
         stage('Push to Azure Container Registry') {
             steps {
+                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
+                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
+                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
+                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
+                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
+                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+            
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     retry(3) {
                         bat """
