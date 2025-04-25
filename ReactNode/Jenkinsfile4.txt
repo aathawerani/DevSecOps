@@ -34,39 +34,31 @@ pipeline {
         }
         
         stage('Terraform Destroy') {
-            steps {
-                dir('ReactNode/terraform') {
-                    withCredentials([
-                        azureServicePrincipal(AZURE_CREDENTIALS_ID),
-                        usernamePassword(
-                            credentialsId: 'sql-admin-password',
-                            usernameVariable: 'SQL_ADMIN_USER',
-                            passwordVariable: 'SQL_ADMIN_PASSWORD'
-                        )
-                    ]) {
-                        bat """
-                            call az login --service-principal ^
-                                -u %AZURE_CLIENT_ID% ^
-                                -p %AZURE_CLIENT_SECRET% ^
-                                --tenant %AZURE_TENANT_ID%
-                            call az account set --subscription ${AZURE_SUBSCRIPTION}
-
-                            D:\\DevOps\\terraform\\terraform init -reconfigure ^
-                                -backend-config="resource_group_name=${env.RESOURCE_GROUP}" ^
-                                -backend-config="storage_account_name=${env.STORAGE_ACCOUNT}" ^
-                                -backend-config="container_name=tfstate" ^
-                                -backend-config="key=${env.TF_STATE_KEY}" ^
-                                -backend-config="subscription_id=${AZURE_SUBSCRIPTION}"
-                            
-                            D:\\DevOps\\terraform\\terraform destroy -auto-approve ^
-                                -var="resource_group_name=${env.RESOURCE_GROUP}" ^
-                                -var="storage_account_name=${env.STORAGE_ACCOUNT}"
-                        """
+            steps{
+                script{
+                    try{
+                        dir('ReactNode/terraform') {
+                            withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                                bat """
+                                    D:\\DevOps\\terraform\\terraform init -reconfigure ^
+                                        -backend-config="resource_group_name=${env.RESOURCE_GROUP}" ^
+                                        -backend-config="storage_account_name=${env.STORAGE_ACCOUNT}" ^
+                                        -backend-config="container_name=tfstate" ^
+                                        -backend-config="key=${env.TF_STATE_KEY}"
+                                    
+                                    D:\\DevOps\\terraform\\terraform destroy -auto-approve
+                                """
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        echo "Got exception"
                     }
                 }
             }
         }
-        
+
         stage('Cleanup Azure Resources') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {

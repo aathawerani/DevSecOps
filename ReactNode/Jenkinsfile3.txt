@@ -90,13 +90,20 @@ pipeline {
                         call az storage container create ^
                             --name tfstate ^
                             --account-name ${STORAGE_ACCOUNT} 
+                    """
+                }
+            }
+        }
 
-                        call az acr create --name ${AZURE_REGISTRY} ^
+        stage('Create Azure Container Registry') {
+            steps {
+                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                    bat """                        
+                        az acr create --name ${AZURE_REGISTRY} ^
                             --resource-group ${RESOURCE_GROUP} ^
                             --sku Basic ^
                             --admin-enabled true ^
                             --location ${LOCATION}
-
                     """
                 }
             }
@@ -130,13 +137,11 @@ pipeline {
         stage('Push to Azure Container Registry') {
             steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    retry(3) {
-                        bat """
-                            call az acr login --name ${AZURE_REGISTRY} || exit /b 1
-                            call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG} || exit /b 1
-                            call docker push ${BACKEND_IMAGE}:${IMAGE_TAG} || exit /b 1
-                        """
-                    }
+                    bat """
+                        call az acr login --name ${AZURE_REGISTRY}
+                        call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        call docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    """
                 }
             }
         }
@@ -153,6 +158,7 @@ pipeline {
                         )
                     ]) {
                         bat """
+
                             call az login --service-principal ^
                             -u ${AZURE_CLIENT_ID} ^
                             -p ${AZURE_CLIENT_SECRET} ^
@@ -163,9 +169,7 @@ pipeline {
                                 -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
                                 -backend-config="storage_account_name=${STORAGE_ACCOUNT}" ^
                                 -backend-config="container_name=tfstate" ^
-                                -backend-config="key=paymentgateway.tfstate" ^
-                                -backend-config="subscription_id=${AZURE_SUBSCRIPTION}" ^
-                                -reconfigure
+                                -backend-config="key=${RESOURCE_GROUP}.tfstate"
                             
                             D:\\DevOps\\terraform\\terraform apply -auto-approve ^
                                 -var="resource_group_name=${RESOURCE_GROUP}" ^
@@ -183,6 +187,7 @@ pipeline {
                 }
             }
         }
+
         stage('Get Endpoints') {
             steps {
                 dir('terraform') {

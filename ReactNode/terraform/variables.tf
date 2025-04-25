@@ -9,6 +9,21 @@ variable "location" {
   default     = "eastus"
 }
 
+variable "resource_group_name" {
+  description = "Name of the resource group (passed from Jenkins)"
+  type        = string
+}
+
+variable "acr_name" {
+  description = "Azure Container Registry name (passed from Jenkins)"
+  type        = string
+}
+
+variable "storage_account_name" {
+  description = "Storage account name for Terraform state (passed from Jenkins)"
+  type        = string
+}
+
 variable "sql_server_name" {
   description = "Base name for SQL Server (will be combined with deployment_id)"
   type        = string
