@@ -66,7 +66,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     vm_size             = "Standard_B2s"
     os_disk_size_gb     = 30
     type                = "VirtualMachineScaleSets"
-    enable_auto_scaling = false
   }
 
   identity {
