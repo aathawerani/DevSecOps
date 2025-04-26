@@ -19,14 +19,6 @@ resource "azurerm_resource_group" "main" {
   location = var.location
 }
 
-resource "azurerm_container_registry" "acr" {
-  name                = var.acr_name
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.location
-  sku                 = "Basic"
-  admin_enabled       = true
-}
-
 resource "azurerm_mssql_server" "sql" {
   name                         = var.sql_server_name
   resource_group_name          = azurerm_resource_group.main.name
@@ -91,71 +83,6 @@ provider "kubernetes" {
 }
 
 # Kubernetes Deployments
-resource "kubernetes_deployment" "frontend" {
-  metadata {
-    name = "frontend"
-    labels = {
-      app = "frontend"
-    }
-  }
-
-  spec {
-    replicas = 1
-
-    selector {
-      match_labels = {
-        app = "frontend"
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = "frontend"
-        }
-      }
-
-      spec {
-        container {
-          image = "${var.frontend_image}:latest"
-          name  = "frontend-app"
-
-          port {
-            container_port = 80
-          }
-
-          resources {
-            limits = {
-              cpu    = "0.5"
-              memory = "512Mi"
-            }
-            requests = {
-              cpu    = "250m"
-              memory = "256Mi"
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-resource "kubernetes_service" "frontend" {
-  metadata {
-    name = "frontend-service"
-  }
-  spec {
-    selector = {
-      app = kubernetes_deployment.frontend.metadata.0.labels.app
-    }
-    port {
-      port        = 80
-      target_port = 80
-    }
-    type = "LoadBalancer"
-  }
-}
-
 resource "kubernetes_deployment" "backend" {
   metadata {
     name = "backend"
@@ -225,3 +152,69 @@ resource "kubernetes_service" "backend" {
     type = "ClusterIP"
   }
 }
+
+resource "kubernetes_deployment" "frontend" {
+  metadata {
+    name = "frontend"
+    labels = {
+      app = "frontend"
+    }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = "frontend"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "frontend"
+        }
+      }
+
+      spec {
+        container {
+          image = "${var.frontend_image}:latest"
+          name  = "frontend-app"
+
+          port {
+            container_port = 80
+          }
+
+          resources {
+            limits = {
+              cpu    = "0.5"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "frontend" {
+  metadata {
+    name = "frontend-service"
+  }
+  spec {
+    selector = {
+      app = kubernetes_deployment.frontend.metadata.0.labels.app
+    }
+    port {
+      port        = 80
+      target_port = 80
+    }
+    type = "LoadBalancer"
+  }
+}
+
