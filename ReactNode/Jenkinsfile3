@@ -30,6 +30,7 @@ pipeline {
                     // Set all env vars consistently
                     env.DEPLOYMENT_ID = "pg-${uuidPart}"
                     env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
+                    env.TF_RESOURCE_GROUP = "rg-tf-${env.DEPLOYMENT_ID}"
                     env.STORAGE_ACCOUNT = "sa${uuidPart}"
                     env.AZURE_REGISTRY = "acr${uuidPart}"
                     env.FRONTEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/frontend-app"
@@ -177,7 +178,7 @@ pipeline {
                                 -reconfigure
 
                             D:\\DevOps\\terraform\\terraform apply -auto-approve ^
-                                -var="resource_group_name=${RESOURCE_GROUP}" ^
+                                -var="resource_group_name=${TF_RESOURCE_GROUP}" ^
                                 -var="location=${LOCATION}" ^
                                 -var="sql_server_name=${SQL_SERVER_NAME}" ^
                                 -var="sql_db_name=${SQL_DB_NAME}" ^
