@@ -1,86 +1,39 @@
 terraform {
-  required_version = ">= 1.0.0"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.0"
-    }
-  }
-
   backend "azurerm" {
     resource_group_name  = var.resource_group_name
     storage_account_name = var.storage_account_name
     container_name       = "tfstate"
-    key                  = "paymentgateway-${var.resource_group_name}.tfstate"
-    subscription_id      = var.azure_subscription_id
+    key                  = "paymentgateway-${var.resource_group_name}.tfstate"  # Unique per deployment
+    subscription_id      = var.azure_subscription_id  # Add this line
   }
 }
 
 provider "azurerm" {
   features {}
-  subscription_id = var.azure_subscription_id
+  subscription_id = var.azure_subscription_id  # Add this line
 }
 
 # Core Infrastructure Resources
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
-  tags = {
-    environment = "production"
-    deployment  = var.resource_group_name
-  }
-}
-
-resource "azurerm_storage_account" "storage" {
-  name                     = var.storage_account_name
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
-
-  tags = {
-    environment = "production"
-    purpose     = "terraform-state"
-  }
-}
-
-resource "azurerm_storage_container" "tfstate" {
-  name                  = "tfstate"
-  storage_account_name  = azurerm_storage_account.storage.name
-  container_access_type = "private"
 }
 
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = var.location
   sku                 = "Basic"
   admin_enabled       = true
-
-  tags = {
-    environment = "production"
-    purpose     = "docker-images"
-  }
 }
 
-# Database Resources
 resource "azurerm_mssql_server" "sql" {
   name                         = var.sql_server_name
   resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
+  location                     = var.location
   version                      = "12.0"
   administrator_login          = var.sql_admin_username
   administrator_login_password = var.sql_admin_password
-  minimum_tls_version          = "1.2"
-
-  tags = {
-    environment = "production"
-  }
 }
 
 resource "azurerm_mssql_database" "db" {
@@ -90,10 +43,6 @@ resource "azurerm_mssql_database" "db" {
   sku_name       = "Basic"
   max_size_gb    = 2
   zone_redundant = false
-
-  tags = {
-    environment = "production"
-  }
 }
 
 resource "azurerm_mssql_firewall_rule" "allow_azure" {
@@ -277,5 +226,3 @@ resource "kubernetes_service" "backend" {
     type = "ClusterIP"
   }
 }
-
-
