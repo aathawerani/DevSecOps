@@ -1,10 +1,32 @@
+# Outputs
+output "acr_login_server" {
+  value = azurerm_container_registry.acr.login_server
+}
+
+output "acr_admin_username" {
+  value = azurerm_container_registry.acr.admin_username
+}
+
+output "acr_admin_password" {
+  value     = azurerm_container_registry.acr.admin_password
+  sensitive = true
+}
+
+output "frontend_url" {
+  value = "http://${kubernetes_service.frontend.status.0.load_balancer.0.ingress.0.ip}"
+}
+
 output "sql_connection_string" {
-  value = "Server=tcp:${azurerm_mssql_server.sql.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.db.name};User ID=${azurerm_mssql_server.sql.administrator_login};Password=${azurerm_mssql_server.sql.administrator_login_password};Encrypt=true;TrustServerCertificate=false;Connection Timeout=30;"
+  value     = "Server=${azurerm_mssql_server.sql.fully_qualified_domain_name};Database=${azurerm_mssql_database.db.name};User Id=${var.sql_admin_username};Password=${var.sql_admin_password};"
   sensitive = true
 }
 
 output "resource_group_name" {
   value = azurerm_resource_group.main.name
+}
+
+output "aks_cluster_name" {
+  value = azurerm_kubernetes_cluster.aks.name
 }
 
 output "sql_server_name" {
@@ -13,17 +35,4 @@ output "sql_server_name" {
 
 output "sql_database_name" {
   value = azurerm_mssql_database.db.name
-}
-
-output "acr_name" {
-  value = azurerm_container_registry.acr.name
-}
-
-output "aks_cluster_name" {
-  value = azurerm_kubernetes_cluster.aks.name
-}
-
-output "aks_kube_config" {
-  value = azurerm_kubernetes_cluster.aks.kube_config_raw
-  sensitive = true
 }

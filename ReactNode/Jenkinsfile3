@@ -11,23 +11,19 @@ pipeline {
         AZURE_SUBSCRIPTION = 'f12a172b-b284-45ca-8c4b-3833481d3088'
         LOCATION = 'eastus'
         
+        // Generate unique identifiers
         uuidPart = "${UUID.randomUUID().toString().substring(0,8)}"
 
         // Image Configuration
         IMAGE_TAG = "latest"
-
         SQL_ADMIN_USER = "sa"
     }
     
     stages {
-
         stage('Setup Variables') {
             steps {
                 script {
-                    // Generate once
-                    //def uuidPart = UUID.randomUUID().toString().substring(0,8)
-                    
-                    // Set all env vars consistently
+                    // Set all environment variables
                     env.DEPLOYMENT_ID = "pg-${uuidPart}"
                     env.RESOURCE_GROUP = "rg-${env.DEPLOYMENT_ID}"
                     env.STORAGE_ACCOUNT = "sa${uuidPart}"
@@ -36,91 +32,57 @@ pipeline {
                     env.BACKEND_IMAGE = "${env.AZURE_REGISTRY}.azurecr.io/backend-app"
                     env.SQL_SERVER_NAME = "sql-${env.DEPLOYMENT_ID}"
                     env.SQL_DB_NAME = "db-${env.DEPLOYMENT_ID}"
-
-                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
-                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
-                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
-                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
-                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
-
                 }
             }
         }
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        credentialsId: env.GIT_CREDENTIALS_ID,
+                        url: "https://github.com/${GITHUB_REPO}.git"
+                    ]]
+                ])
             }
         }
 
-        stage('Package Deployment Info') {
+        stage('Initial Terraform Setup') {
             steps {
-                script {
-                    // Store all critical parameters in a file
-                    writeJSON file: 'deployment_params.json', json: [
-                        deployment_id: env.DEPLOYMENT_ID,
-                        resource_group: env.RESOURCE_GROUP,
-                        storage_account: env.STORAGE_ACCOUNT,
-                        acr_name: env.AZURE_REGISTRY,
-                        sql_server: env.SQL_SERVER_NAME,
-                        sql_db: env.SQL_DB_NAME,
-                        tf_state_key: "terraform.tfstate",
-                        build_number: env.BUILD_NUMBER,
-                        build_url: env.BUILD_URL,
-                        app_url: "", // Will be updated later
-                        sql_connection: "" // Will be updated later
-                    ]
-                    
-                    // Make build display name more informative
-                    currentBuild.displayName = "DEPLOY-${env.DEPLOYMENT_ID}"
-                    currentBuild.description = """
-                        Deployment ID: ${env.DEPLOYMENT_ID}
-                        Resource Group: ${env.RESOURCE_GROUP}
-                        Storage Account: ${env.STORAGE_ACCOUNT}
-                        ACR: ${env.AZURE_REGISTRY}
-                    """.stripIndent().trim()
-                }
-            }
-        }
+                dir('terraform') {
+                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
+                        bat """
+                            call az login --service-principal ^
+                                -u %AZURE_CLIENT_ID% ^
+                                -p %AZURE_CLIENT_SECRET% ^
+                                --tenant %AZURE_TENANT_ID%
+                            call az account set --subscription ${AZURE_SUBSCRIPTION}
 
-        stage('Azure Setup') {
-            steps {
-                withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                        call az login --service-principal ^
-                            -u %AZURE_CLIENT_ID% ^
-                            -p %AZURE_CLIENT_SECRET% ^
-                            --tenant %AZURE_TENANT_ID%
-
-                        call az account set --subscription ${AZURE_SUBSCRIPTION}
-
-                        call az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
-
-                        call az storage account create ^
-                            --name ${STORAGE_ACCOUNT} ^
-                            --resource-group ${RESOURCE_GROUP} ^
-                            --sku Standard_LRS ^
-                            --location ${LOCATION}
-
-                        call az storage container create ^
-                            --name tfstate ^
-                            --account-name ${STORAGE_ACCOUNT} 
-
-                        call az acr create --name ${AZURE_REGISTRY} ^
-                            --resource-group ${RESOURCE_GROUP} ^
-                            --sku Basic ^
-                            --admin-enabled true ^
-                            --location ${LOCATION}
-
-                    """
-
-                    echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
-                    echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
-                    echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
-                    echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
-                    echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-                    echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
+                            D:\\DevOps\\terraform\\terraform init -reconfigure
+                            
+                            D:\\DevOps\\terraform\\terraform apply -auto-approve ^
+                                -target=azurerm_resource_group.main ^
+                                -target=azurerm_storage_account.storage ^
+                                -target=azurerm_storage_container.tfstate ^
+                                -target=azurerm_container_registry.acr ^
+                                -var="resource_group_name=${RESOURCE_GROUP}" ^
+                                -var="location=${LOCATION}" ^
+                                -var="storage_account_name=${STORAGE_ACCOUNT}" ^
+                                -var="acr_name=${AZURE_REGISTRY}" ^
+                                -var="azure_subscription_id=${AZURE_SUBSCRIPTION}"
+                        """
+                        
+                        // Get ACR credentials for Docker operations
+                        script {
+                            env.ACR_LOGIN_SERVER = bat(
+                                script: 'D:\\DevOps\\terraform\\terraform output -raw acr_login_server',
+                                returnStdout: true
+                            ).trim()
+                        }
+                    }
                 }
             }
         }
@@ -131,7 +93,7 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat """
-                                docker build --platform linux/amd64 \
+                                docker build --platform linux/amd64 ^
                                     -t ${FRONTEND_IMAGE}:${IMAGE_TAG} .
                             """
                         }
@@ -141,7 +103,7 @@ pipeline {
                     steps {
                         dir('backend') {
                             bat """
-                                docker build --platform linux/amd64 \
+                                docker build --platform linux/amd64 ^
                                     -t ${BACKEND_IMAGE}:${IMAGE_TAG} .
                             """
                         }
@@ -149,46 +111,33 @@ pipeline {
                 }
             }
         }
-        
-        stage('Push to Azure Container Registry') {
-            steps {
-                echo "DEPLOYMENT_ID: ${DEPLOYMENT_ID}"
-                echo "RESOURCE_GROUP: ${RESOURCE_GROUP}"
-                echo "STORAGE_ACCOUNT: ${STORAGE_ACCOUNT}"
-                echo "AZURE_REGISTRY: ${AZURE_REGISTRY}"
-                echo "FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-                echo "BACKEND_IMAGE: ${BACKEND_IMAGE}"
 
+        stage('Push to ACR') {
+            steps {
                 withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                     retry(3) {
                         bat """
-                            call az acr login --name ${AZURE_REGISTRY} || exit /b 1
-                            call docker push ${FRONTEND_IMAGE}:${IMAGE_TAG} || exit /b 1
-                            call docker push ${BACKEND_IMAGE}:${IMAGE_TAG} || exit /b 1
+                            call az acr login --name ${AZURE_REGISTRY}
+                            docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                            docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
                         """
                     }
                 }
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Complete Terraform Deployment') {
             steps {
                 dir('terraform') {
                     withCredentials([
-                        azureServicePrincipal(AZURE_CREDENTIALS_ID), 
+                        azureServicePrincipal(AZURE_CREDENTIALS_ID),
                         usernamePassword(
-                            credentialsId: 'sql-admin-password', 
-                            usernameVariable: 'SQL_ADMIN_USER', 
+                            credentialsId: 'sql-admin-password',
+                            usernameVariable: 'SQL_ADMIN_USER',
                             passwordVariable: 'SQL_ADMIN_PASSWORD'
                         )
                     ]) {
                         bat """
-                            call az login --service-principal ^
-                            -u ${AZURE_CLIENT_ID} ^
-                            -p ${AZURE_CLIENT_SECRET} ^
-                            --tenant ${AZURE_TENANT_ID}
-                            call az account set --subscription ${AZURE_SUBSCRIPTION}
-
                             D:\\DevOps\\terraform\\terraform init ^
                                 -backend-config="resource_group_name=${RESOURCE_GROUP}" ^
                                 -backend-config="storage_account_name=${STORAGE_ACCOUNT}" ^
@@ -208,12 +157,13 @@ pipeline {
                                 -var="backend_image=${BACKEND_IMAGE}:${IMAGE_TAG}" ^
                                 -var="acr_name=${AZURE_REGISTRY}" ^
                                 -var="storage_account_name=${STORAGE_ACCOUNT}" ^
-                                -var=\"azure_subscription_id=${AZURE_SUBSCRIPTION}"
+                                -var="azure_subscription_id=${AZURE_SUBSCRIPTION}"
                         """
                     }
                 }
             }
         }
+
         stage('Get Endpoints') {
             steps {
                 dir('terraform') {
@@ -233,46 +183,46 @@ pipeline {
                 }
             }
         }
-
-        stage('Update Deployment Info') {
-            steps {
-                script {
-                    // Read existing params
-                    def params = readJSON file: 'deployment_params.json'
-                    
-                    // Update with outputs
-                    params.app_url = env.APP_URL
-                    params.sql_connection = env.SQL_CONNECTION_STRING
-                    
-                    // Write back
-                    writeJSON file: 'deployment_params.json', json: params
-                    
-                    // Final archive
-                    archiveArtifacts artifacts: 'deployment_params.json'
-                }
-            }
-        }
     }
     
     post {
         always {
             script {
-                def params = readJSON file: 'deployment_params.json'
+                def deploymentInfo = [
+                    deployment_id: env.DEPLOYMENT_ID,
+                    resource_group: env.RESOURCE_GROUP,
+                    storage_account: env.STORAGE_ACCOUNT,
+                    acr_name: env.AZURE_REGISTRY,
+                    sql_server: env.SQL_SERVER_NAME,
+                    sql_db: env.SQL_DB_NAME,
+                    build_number: env.BUILD_NUMBER,
+                    build_url: env.BUILD_URL,
+                    app_url: env.APP_URL,
+                    sql_connection: env.SQL_CONNECTION_STRING
+                ]
+                
+                writeJSON file: 'deployment_info.json', json: deploymentInfo
+                archiveArtifacts artifacts: 'deployment_info.json'
+                
                 emailext body: """
-                    Deployment ${currentBuild.currentResult} - ${params.deployment_id}
+                    Deployment ${currentBuild.currentResult} - ${deploymentInfo.deployment_id}
                     
-                    Application URL: ${params.app_url}
-                    SQL Server: ${params.sql_server}.database.windows.net
+                    Application URL: ${deploymentInfo.app_url}
+                    SQL Server: ${deploymentInfo.sql_server}.database.windows.net
+                    
+                    Build Details: ${deploymentInfo.build_url}
                     
                     To destroy this deployment:
                     1. Go to the 'paymentgateway-destroy' pipeline
-                    2. Select build #${params.build_number}
-                    
-                    Jenkins build: ${params.build_url}
+                    2. Select build #${deploymentInfo.build_number}
                 """,
-                subject: "Deployment ${currentBuild.currentResult}: ${params.deployment_id}",
+                subject: "Deployment ${currentBuild.currentResult}: ${deploymentInfo.deployment_id}",
                 to: "athawerani@gmail.com"
             }
+        }
+        
+        cleanup {
+            cleanWs()
         }
     }
 }

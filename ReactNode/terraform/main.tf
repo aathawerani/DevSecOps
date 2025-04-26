@@ -1,50 +1,86 @@
 terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+  }
+
   backend "azurerm" {
     resource_group_name  = var.resource_group_name
     storage_account_name = var.storage_account_name
     container_name       = "tfstate"
-    key                  = "paymentgateway-${var.resource_group_name}.tfstate"  # Unique per deployment
-    subscription_id      = var.azure_subscription_id  # Add this line
+    key                  = "paymentgateway-${var.resource_group_name}.tfstate"
+    subscription_id      = var.azure_subscription_id
   }
 }
 
 provider "azurerm" {
   features {}
-  subscription_id = var.azure_subscription_id  # Add this line
+  subscription_id = var.azure_subscription_id
 }
 
-provider "kubernetes" {
-  host                   = azurerm_kubernetes_cluster.aks.kube_config.0.host
-  client_certificate     = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_certificate)
-  client_key             = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate)
-}
-
+# Core Infrastructure Resources
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
-
-  lifecycle {
-    prevent_destroy = false  # Allows destruction when needed
-    ignore_changes = [tags]  # Ignore tag changes made outside Terraform
+  tags = {
+    environment = "production"
+    deployment  = var.resource_group_name
   }
+}
+
+resource "azurerm_storage_account" "storage" {
+  name                     = var.storage_account_name
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
+
+  tags = {
+    environment = "production"
+    purpose     = "terraform-state"
+  }
+}
+
+resource "azurerm_storage_container" "tfstate" {
+  name                  = "tfstate"
+  storage_account_name  = azurerm_storage_account.storage.name
+  container_access_type = "private"
 }
 
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name
   resource_group_name = azurerm_resource_group.main.name
-  location            = var.location
+  location            = azurerm_resource_group.main.location
   sku                 = "Basic"
   admin_enabled       = true
+
+  tags = {
+    environment = "production"
+    purpose     = "docker-images"
+  }
 }
 
+# Database Resources
 resource "azurerm_mssql_server" "sql" {
   name                         = var.sql_server_name
   resource_group_name          = azurerm_resource_group.main.name
-  location                     = var.location
+  location                     = azurerm_resource_group.main.location
   version                      = "12.0"
   administrator_login          = var.sql_admin_username
   administrator_login_password = var.sql_admin_password
+  minimum_tls_version          = "1.2"
+
+  tags = {
+    environment = "production"
+  }
 }
 
 resource "azurerm_mssql_database" "db" {
@@ -54,23 +90,192 @@ resource "azurerm_mssql_database" "db" {
   sku_name       = "Basic"
   max_size_gb    = 2
   zone_redundant = false
+
+  tags = {
+    environment = "production"
+  }
 }
 
+resource "azurerm_mssql_firewall_rule" "allow_azure" {
+  name             = "AllowAzureServices"
+  server_id        = azurerm_mssql_server.sql.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
+
+# Kubernetes Cluster
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "aks-${var.resource_group_name}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   dns_prefix          = "aks-${var.resource_group_name}"
+  sku_tier            = "Free"
 
   default_node_pool {
-    name       = "default"
-    node_count = 1
-    vm_size    = "Standard_B2s"
+    name                = "default"
+    node_count          = 1
+    vm_size             = "Standard_B2s"
+    os_disk_size_gb     = 30
+    type                = "VirtualMachineScaleSets"
+    enable_auto_scaling = false
   }
 
   identity {
     type = "SystemAssigned"
   }
+
+  network_profile {
+    network_plugin = "kubenet"
+    network_policy = "calico"
+  }
+
+  tags = {
+    environment = "production"
+  }
 }
 
-# [Rest of your Kubernetes resources remain unchanged...]
+# Kubernetes Provider Configuration
+provider "kubernetes" {
+  host                   = azurerm_kubernetes_cluster.aks.kube_config.0.host
+  client_certificate     = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_certificate)
+  client_key             = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_key)
+  cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate)
+}
+
+# Kubernetes Deployments
+resource "kubernetes_deployment" "frontend" {
+  metadata {
+    name = "frontend"
+    labels = {
+      app = "frontend"
+    }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = "frontend"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "frontend"
+        }
+      }
+
+      spec {
+        container {
+          image = "${var.frontend_image}:latest"
+          name  = "frontend-app"
+
+          port {
+            container_port = 80
+          }
+
+          resources {
+            limits = {
+              cpu    = "0.5"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "frontend" {
+  metadata {
+    name = "frontend-service"
+  }
+  spec {
+    selector = {
+      app = kubernetes_deployment.frontend.metadata.0.labels.app
+    }
+    port {
+      port        = 80
+      target_port = 80
+    }
+    type = "LoadBalancer"
+  }
+}
+
+resource "kubernetes_deployment" "backend" {
+  metadata {
+    name = "backend"
+    labels = {
+      app = "backend"
+    }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = "backend"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "backend"
+        }
+      }
+
+      spec {
+        container {
+          image = "${var.backend_image}:latest"
+          name  = "backend-app"
+
+          env {
+            name  = "DB_CONNECTION_STRING"
+            value = "Server=${azurerm_mssql_server.sql.fully_qualified_domain_name};Database=${azurerm_mssql_database.db.name};User Id=${var.sql_admin_username};Password=${var.sql_admin_password};"
+          }
+
+          port {
+            container_port = 8080
+          }
+
+          resources {
+            limits = {
+              cpu    = "0.5"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "backend" {
+  metadata {
+    name = "backend-service"
+  }
+  spec {
+    selector = {
+      app = kubernetes_deployment.backend.metadata.0.labels.app
+    }
+    port {
+      port        = 8080
+      target_port = 8080
+    }
+    type = "ClusterIP"
+  }
+}
+
+
