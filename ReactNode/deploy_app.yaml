@@ -115,7 +115,7 @@
     - name: Execute SQL Initialization Script
       shell: |
         kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd \
-          -S sqlserver -U sa -P "{{ sql_password.stdout }}" -i /tmp/init.sql
+          -S localhost -U sa -P "{{ sql_password.stdout }}" -i /tmp/init.sql
       retries: 3
       delay: 5
       register: sqlcmd_result
