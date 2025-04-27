@@ -104,20 +104,22 @@
         kubectl cp init.sql $(kubectl get pod -n default -l app=sqlserver -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql -n default
       args:
         executable: /bin/bash
+
+    - name: Get SQL Server SA password
+      shell: |
+        kubectl get secret sqlserver-secret -o jsonpath="{.data.SA_PASSWORD}" | base64 --decode
+      register: sql_password
+      changed_when: false
  
      # 🟢 Execute SQL Initialization Script in SQL Server
     - name: Execute SQL Initialization Script
-      command: >
-        kubectl exec deploy/sqlserver -c sqlserver --
-        /opt/mssql-tools/bin/sqlcmd
-        -S sqlserver
-        -U sa
-        -P $(kubectl get secret sqlserver-secret -o jsonpath='{.data.SA_PASSWORD}' | base64 --decode)
-        -i /tmp/init.sql
-      register: sql_init_result
+      shell: |
+        kubectl exec deploy/sqlserver -c sqlserver -- /opt/mssql-tools/bin/sqlcmd \
+          -S sqlserver -U sa -P "{{ sql_password.stdout }}" -i /tmp/init.sql
       retries: 3
-      delay: 10
-      until: sql_init_result.rc == 0
+      delay: 5
+      register: sqlcmd_result
+      until: sqlcmd_result.rc == 0
 
     # ✅ Deploy Backend and Frontend Services
     - name: Deploy Backend Service
