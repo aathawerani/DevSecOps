@@ -24,3 +24,27 @@ spec:
                 name: app-config
             - secretRef:
                 name: app-secrets
+          env:
+            - name: DB_SERVER
+              value: "sqlserver-service"  # Must match your SQL Server service name
+            - name: DB_NAME
+              value: "your-database-name"  # Replace with your actual DB name
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
