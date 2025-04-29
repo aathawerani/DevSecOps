@@ -29,6 +29,12 @@ spec:
               value: "sqlserver-service"  # Must match your SQL Server service name
             - name: DB_NAME
               value: "your-database-name"  # Replace with your actual DB name
+            - name: SESSION_SECRET
+              value: "your-secret-value"
+            - name: DB_USER
+              value: "your-secret-value"
+            - name: DB_PASSWORD
+              value: "your-secret-value"
           readinessProbe:
             httpGet:
               path: /health
