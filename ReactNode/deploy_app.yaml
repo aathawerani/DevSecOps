@@ -91,6 +91,13 @@
         namespace: default
         src: k8s/sqlserver-deployment.yaml
 
+    - name: Deploy SQL Server Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        namespace: default
+        src: k8s/sqlserver-service.yaml
+
     - name: Wait for SQL Server Pod to be Ready
       command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout={{ sql_timeout }}s
       register: sql_ready
