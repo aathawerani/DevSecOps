@@ -28,13 +28,27 @@ spec:
             - name: DB_SERVER
               value: "sqlserver-service"  # Must match your SQL Server service name
             - name: DB_NAME
-              value: "your-database-name"  # Replace with your actual DB name
+              value: "MyAppDB"  # Replace with your actual DB name
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
             - name: SESSION_SECRET
-              value: "your-secret-value"
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
             - name: DB_USER
-              value: "your-secret-value"
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_USER
             - name: DB_PASSWORD
-              value: "your-secret-value"
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
           readinessProbe:
             httpGet:
               path: /health
