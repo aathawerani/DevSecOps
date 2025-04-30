@@ -8,47 +8,31 @@
     init_script_path: "init.sql"  # Path to your init.sql script
   tasks:
 
-    # Clean up previous SQL Server deployment first
-    - name: Delete old SQL Server deployment
+    - name: Forcefully delete old deployments with cascading
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         kind: Deployment
-        name: sqlserver
+        name: "{{ item }}"
         namespace: default
         state: absent
+        force: yes  # Force deletion if stuck
+        propagation_policy: Foreground  # Ensure cascading deletion
+      loop:
+        - sqlserver
+        - backend
+        - frontend
       ignore_errors: yes
-      changed_when: false  # Don't fail if not exists
+      changed_when: false
 
-    - name: Wait for old pods to terminate
-      command: kubectl wait --for=delete pod -l app=sqlserver --timeout=60s
-      ignore_errors: yes
+    - name: Verify all pods are terminated
+      command: >
+        kubectl wait --for=delete pod
+        --selector=app in (sqlserver,backend,frontend)
+        --timeout=120s
       register: pod_termination
-      changed_when: "'error: no matching resources found' not in pod_termination.stderr"
-
-    - name: Delete old Backend deployment
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        kind: Deployment
-        name: backend
-        namespace: default
-        state: absent
-      ignore_errors: yes
-
-    - name: Wait for old Backend pods to terminate
-      command: kubectl wait --for=delete pod -l app=backend --timeout=60s
-      ignore_errors: yes
-
-    - name: Delete old Frontend deployment
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        kind: Deployment
-        name: frontend
-        namespace: default
-        state: absent
-      ignore_errors: yes
-
-    - name: Wait for old Frontend pods to terminate
-      command: kubectl wait --for=delete pod -l app=frontend --timeout=60s
+      retries: 3
+      delay: 10
+      until: pod_termination.rc == 0
       ignore_errors: yes
 
     # ✅ Apply Configurations
