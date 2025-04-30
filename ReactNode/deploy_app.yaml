@@ -24,7 +24,38 @@
         - frontend
       ignore_errors: yes
       changed_when: false
-  
+
+    - name: Delete associated PVCs
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: PersistentVolumeClaim
+        namespace: default
+        label_selectors:
+          - "app in (sqlserver,backend,frontend)"
+        state: absent
+      ignore_errors: yes
+
+    - name: Force delete any remaining pods
+      command: >
+        kubectl delete pod
+        --selector='app in (sqlserver,backend,frontend)'
+        --grace-period=0
+        --force
+      when: remaining_pods.stdout != ""
+      register: force_delete
+      retries: 3
+      delay: 10
+      until: force_delete.rc == 0
+      ignore_errors: yes
+
+    - name: Check for blocking finalizers
+      command: >
+        kubectl get pods -l "app in (sqlserver,backend,frontend)"
+        -o jsonpath='{.items[*].metadata.finalizers}'
+      register: finalizers_check
+      changed_when: false
+      ignore_errors: yes
+
     - name: Verify all pods are terminated
       command: >
         kubectl wait --for=delete pod
