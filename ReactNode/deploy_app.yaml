@@ -8,7 +8,7 @@
     init_script_path: "init.sql"  # Path to your init.sql script
   tasks:
 
-    - name: Forcefully delete old deployments with cascading
+    - name: Forcefully delete old deployments
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         kind: Deployment
@@ -16,14 +16,15 @@
         namespace: default
         state: absent
         force: yes  # Force deletion if stuck
-        propagation_policy: Foreground  # Ensure cascading deletion
+        wait: yes  # Wait for deletion to complete
+        wait_timeout: 120  # Wait up to 2 minutes
       loop:
         - sqlserver
         - backend
         - frontend
       ignore_errors: yes
       changed_when: false
-
+  
     - name: Verify all pods are terminated
       command: >
         kubectl wait --for=delete pod
