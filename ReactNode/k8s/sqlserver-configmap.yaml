@@ -11,3 +11,4 @@ data:
   MSSQL_MEMORY_LIMIT_MB: "2048"
   MSSQL_TCP_PORT: "1433"
   MSSQL_AGENT_ENABLED: "true"
+  MSSQL_SSL_ENABLED: "0"  # Disables SSL encryption

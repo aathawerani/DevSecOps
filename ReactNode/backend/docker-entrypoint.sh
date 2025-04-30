@@ -25,20 +25,9 @@ wait_for_db() {
     exit 1
 }
 
-# Verify integrations
-verify_integrations() {
-    # Check Stripe
-    if [ ! -z "$STRIPE_SECRET_KEY" ]; then
-        echo "Verifying Stripe configuration..."
-        curl -f -s https://api.stripe.com/v1/balance \
-            -u "${STRIPE_SECRET_KEY}:" > /dev/null || \
-            echo "Warning: Could not verify Stripe configuration"
-    fi
-}
 
 # Run checks
 wait_for_db
-verify_integrations
 
 # Execute main command
 exec "$@"
