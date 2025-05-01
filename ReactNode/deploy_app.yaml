@@ -67,6 +67,35 @@
       until: pod_termination.rc == 0
       ignore_errors: yes
 
+    - name: Get remaining pods for app in (sqlserver,backend,frontend)
+      command: >
+        kubectl get pods --selector='app in (sqlserver,backend,frontend)' --no-headers
+      register: remaining_pods
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Force delete any remaining pods
+      command: >
+        kubectl delete pod
+        --selector='app in (sqlserver,backend,frontend)'
+        --grace-period=0
+        --force
+      when: remaining_pods.stdout != ""
+      register: force_delete
+      retries: 3
+      delay: 10
+      until: force_delete.rc == 0
+      ignore_errors: yes
+
+    - name: Verify all pods are terminated
+      command: >
+        kubectl wait --for=delete pod --selector='app in (sqlserver,backend,frontend)' --timeout=120s
+      register: pod_termination
+      retries: 3
+      delay: 10
+      until: pod_termination.rc == 0
+      ignore_errors: yes
+
     # ✅ Apply Configurations
     - name: Apply Kubernetes ConfigMap
       kubernetes.core.k8s:
