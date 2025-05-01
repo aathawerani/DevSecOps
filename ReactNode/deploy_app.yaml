@@ -147,11 +147,24 @@
         state: present
         src: k8s/backend-deployment.yaml
 
+    # ✅ Deploy Backend and Frontend Services
+    - name: Deploy Backend Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/backend-service.yaml
+
     - name: Deploy Frontend Service
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/frontend-deployment.yaml
+
+    - name: Deploy Frontend Service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        src: k8s/frontend-service.yaml
 
     # ✅ Final Verification
     - name: Wait for all pods to be ready
