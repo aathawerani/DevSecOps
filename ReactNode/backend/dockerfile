@@ -6,12 +6,14 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
+    vips-dev \
+    vips \
+    vips-cpp \
+    libc6-compat \
+    # ODBC dependencies remain unchanged
     unixodbc-dev \
     curl \
-    gnupg \
-    vips-dev \
-    build-base \
-    libc6-compat
+    gnupg
 
 # Install Microsoft ODBC Driver
 RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
@@ -36,9 +38,7 @@ RUN apk add --no-cache \
     vips \
     vips-dev \
     vips-cpp \
-    libc6-compat \
-    unixodbc-dev \
-    && rm -rf /var/cache/apk/*
+    libc6-compat
 
 # Install Microsoft ODBC Driver
 RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
