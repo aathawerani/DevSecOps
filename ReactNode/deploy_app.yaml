@@ -153,31 +153,6 @@
         state: present
         src: k8s/frontend-deployment.yaml
 
-    - name: Describe backend pods
-      command: >
-        kubectl describe pod -l app=backend
-      register: backend_describe
-      when: backend_pods.stdout != ""
-      ignore_errors: yes
-
-    - name: Display backend pod details
-      debug:
-        var: backend_describe.stdout
-      when: backend_describe is defined
-
-    - name: Check backend pod events
-      command: >
-        kubectl get events --field-selector involvedObject.name={{ item }}
-      with_items: "{{ backend_pods.stdout_lines | map('regex_replace', '\\s+.*', '') | list }}"
-      when: backend_pods.stdout != ""
-      register: backend_events
-      ignore_errors: yes
-
-    - name: Display backend pod events
-      debug:
-        var: backend_events.results
-      when: backend_events is defined
-
     # ✅ Final Verification
     - name: Wait for all pods to be ready
       command: kubectl get pods

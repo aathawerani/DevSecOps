@@ -10,7 +10,8 @@ RUN apk add --no-cache \
     curl \
     gnupg \
     vips-dev \
-    build-base
+    build-base \
+    libc6-compat
 
 # Install Microsoft ODBC Driver
 RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
@@ -21,6 +22,7 @@ WORKDIR /usr/src/app
 
 # Install dependencies first for better caching
 COPY package*.json ./
+RUN npm install --include=optional --platform=linuxmusl --arch=x64 sharp
 RUN npm ci --include=optional
 
 # Copy all files except those in .dockerignore
@@ -31,10 +33,11 @@ FROM --platform=linux/amd64 node:18-alpine
 
 # Install runtime dependencies
 RUN apk add --no-cache \
-    python3 \
-    curl \
-    unixodbc-dev \
     vips \
+    vips-dev \
+    vips-cpp \
+    libc6-compat \
+    unixodbc-dev \
     && rm -rf /var/cache/apk/*
 
 # Install Microsoft ODBC Driver
