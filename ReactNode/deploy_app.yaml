@@ -42,38 +42,25 @@
 
     - name: Delete associated ReplicaSets
       command: >
-        kubectl delete rs --selector='app in (sqlserver,backend,frontend)'
+        kubectl delete rs --selector='app in (sqlserver,backend,frontend)' --wait=false
       ignore_errors: yes
 
     - name: Force delete any remaining pods
       command: >
-        kubectl delete pod
-        --selector='app in (sqlserver,backend,frontend)'
-        --grace-period=0
-        --force
+        kubectl delete pod --selector='app in (sqlserver,backend,frontend)' --grace-period=0 --force --wait=false
       when: remaining_pods.stdout != ""
       register: force_delete
       retries: 3
       delay: 10
       ignore_errors: yes
 
-    - name: Remove blocking finalizers from stuck pods
+    - name: Verify cleanup completion
       command: >
-        kubectl patch pod {{ item }}
-        -p '{"metadata":{"finalizers":null}}'
-        --type=merge
-      with_items: "{{ remaining_pods.stdout_lines | map('regex_replace', '\\s+.*', '') | list }}"
-      when: remaining_pods.stdout != ""
-      ignore_errors: yes
-
-    - name: Verify all pods are terminated
-      command: >
-        kubectl wait --for=delete pod
-        --selector='app in (sqlserver,backend,frontend)'
-        --timeout=120s
-      register: pod_termination
-      retries: 3
-      delay: 10
+        kubectl get pods --selector='app in (sqlserver,backend,frontend)' --no-headers
+      register: final_check
+      until: final_check.stdout == ""
+      retries: 5
+      delay: 15
       ignore_errors: yes
 
     # ✅ Apply Configurations
@@ -165,6 +152,17 @@
         kubeconfig: "{{ kubeconfig_path }}"
         state: present
         src: k8s/frontend-deployment.yaml
+
+    - name: Check backend pod logs
+      command: >
+        kubectl logs -l app=backend --all-containers=true --tail=50
+      register: backend_logs
+      when: "'my-backend-app' in pod_status.stdout"
+      ignore_errors: yes
+
+    - debug:
+        var: backend_logs.stdout
+        verbosity: 1
 
     # ✅ Final Verification
     - name: Wait for all pods to be ready
