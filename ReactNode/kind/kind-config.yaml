@@ -3,8 +3,9 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   extraPortMappings:
-  - containerPort: 3000  # Frontend (React + Nginx)
+  - containerPort: 32356  # Frontend (React + Nginx)
     hostPort: 3000
+    protocol: TCP
   - containerPort: 5001  # Backend (Node.js API)
     hostPort: 5001
   - containerPort: 1433  # SQL Server database
