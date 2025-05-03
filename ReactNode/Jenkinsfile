@@ -62,7 +62,7 @@ pipeline {
                     def response = httpRequest(
                         url: "${env.SONAR_HOST}/api/issues/search?componentKeys=${env.SONAR_PROJECT}",
                         httpMode: 'GET',
-                        authentication: 'sonarqube-api-creds',
+                        authentication: SONARQUBE_TOKEN,
                         validResponseCodes: '200',
                         contentType: 'APPLICATION_JSON'
                     )
