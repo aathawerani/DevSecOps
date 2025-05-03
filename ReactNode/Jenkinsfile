@@ -75,7 +75,7 @@ pipeline {
 		stage('Upload to DefectDojo') {
 		    steps {
 		        script {
-		            withCredentials([string(credentialsId: 'dojo-api-token', variable: 'DOJO_TOKEN')]) {
+		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
 		                def reportFile = "sonar-report.json"
 		                def curlCommand = """
 		                    curl -X POST "${env.DEFECTDOJO_HOST}/api/v2/import-scan/" ^
