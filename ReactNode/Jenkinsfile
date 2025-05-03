@@ -75,14 +75,14 @@ pipeline {
 		stage('Upload to DefectDojo') {
 		    steps {
 		        script {
-		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
-		                def reportFile = "sonar-report.json"
-		                def curlCommand = """
-		                    curl -X POST "${env.DEFECTDOJO_HOST}/api/v2/import-scan/" ^
+		            withCredentials([string(credentialsId: 'dojo-api-token', variable: 'DOJO_TOKEN')]) {
+		                def curlScript = """
+		                    @echo off
+		                    curl -X POST "http://localhost:8080/api/v2/import-scan/" ^
 		                    -H "Authorization: Token ${DOJO_TOKEN}" ^
 		                    -H "accept: application/json" ^
 		                    -H "Content-Type: multipart/form-data" ^
-		                    -F "file=@${reportFile}" ^
+		                    -F "file=@sonar-report.json" ^
 		                    -F "scan_type=SonarQube Scan" ^
 		                    -F "engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}" ^
 		                    -F "minimum_severity=Info" ^
@@ -90,12 +90,12 @@ pipeline {
 		                    -F "verified=false"
 		                """
 
-		                bat """powershell -NoProfile -Command "${curlCommand.replace('"', '`"').replace('^', '`n')}" """
+		                writeFile file: 'upload_defectdojo.bat', text: curlScript
+		                bat 'upload_defectdojo.bat'
 		            }
 		        }
 		    }
 		}
-
 		/*stage('Build') {
 		    steps {
 		        script {
