@@ -15,11 +15,10 @@ kubectl delete pvc --all --grace-period=0 --force
 kubectl delete secrets --all
 kubectl delete configmaps --all
 kind delete cluster
-docker stop $(docker ps -aq) 2>/dev/null
-docker rm $(docker ps -aq) 2>/dev/null
-docker rmi $(docker images -q) -f 2>/dev/null
+docker stop $(docker ps -aq) 
+docker rm $(docker ps -aq) 
+docker rmi $(docker images -q) -f 
 docker system prune -a --volumes -f
-kind create cluster
 
 
 kind create cluster --config=/mnt/d/aaht14/gitRepos/DevSecOps/ReactNode/kind/kind-config.yaml

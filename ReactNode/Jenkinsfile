@@ -20,7 +20,7 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		/*stage('Install Dependencies') {
+		stage('Install Dependencies') {
             steps {
                 script {
                     failedStage = "Install Dependencies"
@@ -53,7 +53,76 @@ pipeline {
                 }
             }
         }
-		stage('Build') {
+        stage('Fetch SonarQube Issues') {
+		    steps {
+		        script {
+		            failedStage = "Fetch SonarQube Issues"
+		            def sonarUrl = 'http://localhost:9000'
+		            def projectKey = 'PaymentGateway'
+
+		            def sonarApiUrl = "${sonarUrl}/api/issues/search?componentKeys=${projectKey}"
+
+		            def sonarJson = httpRequest(
+		                url: sonarApiUrl,
+		                httpMode: 'GET',
+		                customHeaders: [
+		                    [name: 'Authorization', value: "Basic ${SONARQUBE_TOKEN.bytes.encodeBase64().toString()}"]
+		                ],
+		                validResponseCodes: '100:599'
+		            ).content
+
+		            writeFile file: 'sonar-report.json', text: sonarJson
+		            echo "✅ SonarQube report saved as sonar-report.json"
+		        }
+		    }
+		}
+		stage('Upload Reports to DefectDojo') {
+		    steps {
+		        script {
+		            failedStage = "Upload Reports to DefectDojo"
+
+		            def reportPaths = [
+		                [type: "Dependency Check Scan", path: "dependency-check-report/dependency-check-report.xml"],
+		                [type: "SonarQube Scan", path: "sonar-report.json"]
+		            ]
+
+		            def productId = 1 // Replace with your actual Product ID in DefectDojo
+		            def dojoUrl = 'http://localhost:8888'
+
+		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DEFECTDOJO_TOKEN')]) {
+		                for (report in reportPaths) {
+		                    def scanType = report.type
+		                    def filePath = report.path
+
+		                    if (!fileExists(filePath)) {
+		                        echo "❌ Skipping ${scanType}: File not found at ${filePath}"
+		                        continue
+		                    }
+
+		                    def response = httpRequest(
+		                        httpMode: 'POST',
+		                        url: "${dojoUrl}/api/v2/import-scan/",
+		                        customHeaders: [
+		                            [name: 'Authorization', value: "Token ${DEFECTDOJO_TOKEN}"]
+		                        ],
+		                        multipartName: 'file',
+		                        multipart: [
+		                            [name: 'file', fileName: filePath],
+		                            [name: 'scan_type', value: scanType],
+		                            [name: 'product_id', value: "${productId}"],
+		                            [name: 'engagement_name', value: "Jenkins Upload - ${scanType}"],
+		                            [name: 'auto_create_context', value: 'true']
+		                        ],
+		                        validResponseCodes: '100:599'
+		                    )
+
+		                    echo "✅ Uploaded ${scanType} report. Status: ${response.status}"
+		                }
+		            }
+		        }
+		    }
+		}
+		/*stage('Build') {
 		    steps {
 		        script {
 		            failedStage = "Build"
@@ -67,7 +136,7 @@ pipeline {
 		            }
 		        }
 		    }
-		}*/
+		}
 		stage('Create Pull Request to Deployment') {
 		    steps {
 		        script {
@@ -97,14 +166,10 @@ pipeline {
 					}
 		        }
 		    }
-		}
+		}*/
 	}
 	post {
         success {
-        	script {
-	            def sonarReportPath = "sonar-report.html"
-	            //bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
-	        }
             emailext (
 	            to: "${EMAIL_RECIPIENT}",
 	            subject: "SUCCESS: ${currentBuild.fullDisplayName}",
@@ -116,8 +181,6 @@ pipeline {
         }
 		failure {
 		    script {
-		        def sonarReportPath = "sonar-report.html"
-		        //bat "curl -s -u admin:admin http://localhost:9000/api/issues/search?componentKeys=PaymentGateway > sonar-report.json"
         
 		        def buildStatus = currentBuild.result ?: "FAILED"
 		        def failedStageMessage = "Pipeline failed at stage: ${failedStage}"

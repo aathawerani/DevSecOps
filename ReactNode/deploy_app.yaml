@@ -113,7 +113,7 @@
     - name: Wait for SQL Server Pod to be Ready
       command: kubectl wait --for=condition=ready pod -l app=sqlserver --timeout={{ sql_timeout }}s
       register: sql_ready
-      retries: 3
+      retries: 6
       delay: 10
       until: sql_ready.rc == 0
       ignore_errors: yes

@@ -3,13 +3,11 @@ FROM --platform=linux/amd64 node:18-alpine AS builder
 # Install Python and build dependencies for SQL Server
 RUN apk add --no-cache python3 make g++ unixodbc-dev curl gnupg
 
+RUN apk update && apk add ca-certificates && update-ca-certificates
 # Install Microsoft ODBC Driver
-RUN apk add --no-cache --virtual .build-deps curl gnupg && \
-    curl -O https://packages.microsoft.com/keys/microsoft.asc && \
-    apk add --import microsoft.asc && \
-    echo "https://packages.microsoft.com/alpine/v$(cut -d'.' -f1,2 /etc/alpine-release)/main" >> /etc/apk/repositories && \
-    apk add --no-cache msodbcsql17 && \
-    apk del .build-deps
+RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
+    apk add --allow-untrusted msodbcsql17_17.10.4.1-1_amd64.apk && \
+    rm msodbcsql17_17.10.4.1-1_amd64.apk
 
 WORKDIR /usr/src/app
 
@@ -28,13 +26,11 @@ RUN apk add --no-cache \
     unixodbc-dev \
     && rm -rf /var/cache/apk/*
 
+RUN apk update && apk add ca-certificates && update-ca-certificates
 # Install Microsoft ODBC Driver
-RUN apk add --no-cache --virtual .runtime-deps curl gnupg && \
-    curl -O https://packages.microsoft.com/keys/microsoft.asc && \
-    apk add --import microsoft.asc && \
-    echo "https://packages.microsoft.com/alpine/v$(cut -d'.' -f1,2 /etc/alpine-release)/main" >> /etc/apk/repositories && \
-    apk add --no-cache msodbcsql17 && \
-    apk del .runtime-deps
+RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.4.1-1_amd64.apk && \
+    apk add --allow-untrusted msodbcsql17_17.10.4.1-1_amd64.apk && \
+    rm msodbcsql17_17.10.4.1-1_amd64.apk
 
 # Create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
