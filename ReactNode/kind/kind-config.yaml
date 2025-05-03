@@ -4,7 +4,7 @@ nodes:
 - role: control-plane
   extraPortMappings:
   - containerPort: 32356  # Frontend (React + Nginx)
-    hostPort: 3000
+    hostPort: 32356
     protocol: TCP
   - containerPort: 5001  # Backend (Node.js API)
     hostPort: 5001
