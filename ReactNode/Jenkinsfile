@@ -59,14 +59,16 @@ pipeline {
         stage('Download SonarQube Report') {
             steps {
                 script {
-                    def response = httpRequest(
-                        url: "${env.SONAR_HOST}/api/issues/search?componentKeys=${env.SONAR_PROJECT}",
-                        httpMode: 'GET',
-                        authentication: SONARQUBE_TOKEN,
-                        validResponseCodes: '200',
-                        contentType: 'APPLICATION_JSON'
-                    )
-                    writeFile file: 'sonar-report.json', text: response.content
+                    withCredentials([string(credentialsId: 'c5ce0640-9155-42e4-9756-b09c801bf2f1', variable: 'SONAR_TOKEN')]) {
+					    def response = httpRequest(
+					        url: "${env.SONAR_HOST}/api/issues/search?componentKeys=${env.SONAR_PROJECT}",
+					        httpMode: 'GET',
+					        customHeaders: [[name: 'Authorization', value: "Bearer ${SONAR_TOKEN}"]],
+					        validResponseCodes: '200',
+					        contentType: 'APPLICATION_JSON'
+					    )
+					    writeFile file: 'sonar-report.json', text: response.content
+					}
                 }
             }
         }
