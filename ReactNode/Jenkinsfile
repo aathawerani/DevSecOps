@@ -2,7 +2,7 @@ def failedStage = "Unknown Stage"  // Variable to track failed stage
 pipeline {
 	agent any
 	environment {
-        SONARQUBE_URL = 'http://localhost:9000'
+        SONAR_HOST = 'http://localhost:9000'
         SONARQUBE_TOKEN = credentials('c5ce0640-9155-42e4-9756-b09c801bf2f1') // Replace with your credential ID
         GIT_CREDENTIALS_ID = 'github-credentials'
         GITHUB_REPO = 'aathawerani/PaymentGateway'
@@ -10,6 +10,9 @@ pipeline {
         EMAIL_RECIPIENT = 'athawerani@gmail.com'
         FRONTEND_DIR = "frontend"
         BACKEND_DIR = "backend"
+        SONAR_PROJECT = 'PaymentGateway'
+        DEFECTDOJO_HOST = 'http://localhost:8080'
+        DEFECTDOJO_ENGAGEMENT_ID = '3' // Replace with your real engagement ID
     }
 	stages{
 		stage('Checkout'){
@@ -20,7 +23,7 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		stage('Install Dependencies') {
+		/*stage('Install Dependencies') {
             steps {
                 script {
                     failedStage = "Install Dependencies"
@@ -52,76 +55,46 @@ pipeline {
 		            }
                 }
             }
+        }*/
+        stage('Download SonarQube Report') {
+            steps {
+                script {
+                    def response = httpRequest(
+                        url: "${env.SONAR_HOST}/api/issues/search?componentKeys=${env.SONAR_PROJECT}",
+                        httpMode: 'GET',
+                        authentication: 'sonarqube-api-creds',
+                        validResponseCodes: '200',
+                        contentType: 'APPLICATION_JSON'
+                    )
+                    writeFile file: 'sonar-report.json', text: response.content
+                }
+            }
         }
-        stage('Fetch SonarQube Issues') {
-		    steps {
-		        script {
-		            failedStage = "Fetch SonarQube Issues"
-		            def sonarUrl = 'http://localhost:9000'
-		            def projectKey = 'PaymentGateway'
+		stage('Upload to DefectDojo') {
+            steps {
+                script {
+                    def dojoToken = credentials('dojo-api-token')
+                    def curlCommand = """
+                        curl -X POST "${env.DEFECTDOJO_HOST}/api/v2/import-scan/" \
+                        -H "Authorization: Token ${dojoToken}" \
+                        -H "accept: application/json" \
+                        -H "Content-Type: multipart/form-data" \
+                        -F "file=@sonar-report.json" \
+                        -F "scan_type=SonarQube Scan" \
+                        -F "engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}" \
+                        -F "minimum_severity=Info" \
+                        -F "active=true" \
+                        -F "verified=false"
+                    """
 
-		            def sonarApiUrl = "${sonarUrl}/api/issues/search?componentKeys=${projectKey}"
-
-		            def sonarJson = httpRequest(
-		                url: sonarApiUrl,
-		                httpMode: 'GET',
-		                customHeaders: [
-		                    [name: 'Authorization', value: "Basic ${SONARQUBE_TOKEN.bytes.encodeBase64().toString()}"]
-		                ],
-		                validResponseCodes: '100:599'
-		            ).content
-
-		            writeFile file: 'sonar-report.json', text: sonarJson
-		            echo "✅ SonarQube report saved as sonar-report.json"
-		        }
-		    }
-		}
-		stage('Upload Reports to DefectDojo') {
-		    steps {
-		        script {
-		            failedStage = "Upload Reports to DefectDojo"
-
-		            def reportPaths = [
-		                [type: "Dependency Check Scan", path: "dependency-check-report/dependency-check-report.xml"],
-		                [type: "SonarQube Scan", path: "sonar-report.json"]
-		            ]
-
-		            def productId = 1 // Replace with your actual Product ID in DefectDojo
-		            def dojoUrl = 'http://localhost:8888'
-
-		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DEFECTDOJO_TOKEN')]) {
-		                for (report in reportPaths) {
-		                    def scanType = report.type
-		                    def filePath = report.path
-
-		                    if (!fileExists(filePath)) {
-		                        echo "❌ Skipping ${scanType}: File not found at ${filePath}"
-		                        continue
-		                    }
-
-		                    def response = httpRequest(
-		                        httpMode: 'POST',
-		                        url: "${dojoUrl}/api/v2/import-scan/",
-		                        customHeaders: [
-		                            [name: 'Authorization', value: "Token ${DEFECTDOJO_TOKEN}"]
-		                        ],
-		                        multipartName: 'file',
-		                        multipart: [
-		                            [name: 'file', fileName: filePath],
-		                            [name: 'scan_type', value: scanType],
-		                            [name: 'product_id', value: "${productId}"],
-		                            [name: 'engagement_name', value: "Jenkins Upload - ${scanType}"],
-		                            [name: 'auto_create_context', value: 'true']
-		                        ],
-		                        validResponseCodes: '100:599'
-		                    )
-
-		                    echo "✅ Uploaded ${scanType} report. Status: ${response.status}"
-		                }
-		            }
-		        }
-		    }
-		}
+                    if (isUnix()) {
+                        sh curlCommand
+                    } else {
+                        bat "powershell -Command \"${curlCommand.replace('"', '`"')}\""
+                    }
+                }
+            }
+        }
 		/*stage('Build') {
 		    steps {
 		        script {
