@@ -73,29 +73,33 @@ pipeline {
             }
         }
 		stage('Upload to DefectDojo') {
-		    steps {
-		        script {
-		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
-		                def curlScript = """
-		                    @echo off
-		                    curl -X POST "http://localhost:8080/api/v2/import-scan/" ^
-		                    -H "Authorization: Token ${DOJO_TOKEN}" ^
-		                    -H "accept: application/json" ^
-		                    -H "Content-Type: multipart/form-data" ^
-		                    -F "file=@sonar-report.json" ^
-		                    -F "scan_type=SonarQube Scan" ^
-		                    -F "engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}" ^
-		                    -F "minimum_severity=Info" ^
-		                    -F "active=true" ^
-		                    -F "verified=false"
-		                """
-
-		                writeFile file: 'upload_defectdojo.bat', text: curlScript
-		                bat 'upload_defectdojo.bat'
-		            }
-		        }
-		    }
-		}
+    steps {
+        script {
+            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
+                httpRequest(
+                    httpMode: 'POST',
+                    url: "http://localhost:8080/api/v2/import-scan/",
+                    customHeaders: [
+                        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
+                        [name: 'accept', value: 'application/json']
+                    ],
+                    multipartName: 'file',
+                    uploadFile: 'sonar-report.json',
+                    contentType: 'MULTIPART_FORM_DATA',
+                    validResponseCodes: '200,201,202',
+                    quiet: true,
+                    requestBody: """
+                        scan_type=SonarQube Scan
+                        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
+                        &minimum_severity=Info
+                        &active=true
+                        &verified=false
+                    """
+                )
+            }
+        }
+    }
+}
 		/*stage('Build') {
 		    steps {
 		        script {
