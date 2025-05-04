@@ -88,14 +88,14 @@ pipeline {
 						    uploadFile: 'sonar-report.json',
 						    validResponseCodes: '200,201,202',
 						    requestBody: """
-						        scan_type=SonarQube Scan
-						        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
-						        &product_name=YOUR_PRODUCT_NAME  // ⚠️ Replace with actual product name
-						        &minimum_severity=Info
-						        &active=true
-						        &verified=false
-						        &close_old_findings=true
-						    """
+							    scan_type=SonarQube Scan
+							    &engagement=1  # Your engagement ID
+							    &product_name=PaymentGateway  # Your product name
+							    &minimum_severity=Info
+							    &active=true
+							    &verified=false
+							    &close_old_findings=true
+							"""
 						)		            }
 		        }
 		    }
