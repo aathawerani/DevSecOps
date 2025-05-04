@@ -73,33 +73,33 @@ pipeline {
             }
         }
 		stage('Upload to DefectDojo') {
-    steps {
-        script {
-            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
-                httpRequest(
-                    httpMode: 'POST',
-                    url: "http://localhost:8080/api/v2/import-scan/",
-                    customHeaders: [
-                        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
-                        [name: 'accept', value: 'application/json']
-                    ],
-                    contentType: 'APPLICATION_FORM',  // ✅ Correct MIME type
-                    multipartName: 'file',
-                    uploadFile: 'sonar-report.json',
-                    validResponseCodes: '200,201,202',
-                    quiet: true,
-                    requestBody: """
-                        scan_type=SonarQube Scan
-                        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
-                        &minimum_severity=Info
-                        &active=true
-                        &verified=false
-                    """
-                )
-            }
-        }
-    }
-}
+		    steps {
+		        script {
+		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
+		                httpRequest(
+		                    httpMode: 'POST',
+		                    url: "http://localhost:8888/api/v2/import-scan/",
+		                    customHeaders: [
+		                        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
+		                        [name: 'accept', value: 'application/json']
+		                    ],
+		                    contentType: 'APPLICATION_FORM',  // ✅ Correct MIME type
+		                    multipartName: 'file',
+		                    uploadFile: 'sonar-report.json',
+		                    validResponseCodes: '200,201,202',
+		                    quiet: true,
+		                    requestBody: """
+		                        scan_type=SonarQube Scan
+		                        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
+		                        &minimum_severity=Info
+		                        &active=true
+		                        &verified=false
+		                    """
+		                )
+		            }
+		        }
+		    }
+		}
 		/*stage('Build') {
 		    steps {
 		        script {
