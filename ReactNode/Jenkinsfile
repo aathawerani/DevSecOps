@@ -76,27 +76,42 @@ pipeline {
 		    steps {
 		        script {
 		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
-						httpRequest(
-						    httpMode: 'POST',
-						    url: "http://localhost:8888/api/v2/import-scan/",
-						    customHeaders: [
-						        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
-						        [name: 'accept', value: 'application/json']
-						    ],
-						    contentType: 'APPLICATION_FORM',
-						    multipartName: 'file',
-						    uploadFile: 'sonar-report.json',
-						    validResponseCodes: '200,201,202',
-						    requestBody: """
-							    scan_type=SonarQube Scan
-							    &engagement=1  # Your engagement ID
-							    &product_name=PaymentGateway  # Your product name
-							    &minimum_severity=Info
-							    &active=true
-							    &verified=false
-							    &close_old_findings=true
-							"""
-						)		            }
+		                // Using httpRequest plugin (recommended)
+		                httpRequest(
+		                    httpMode: 'POST',
+		                    url: "http://localhost:8888/api/v2/import-scan/",
+		                    contentType: 'MULTIPART_FORM_DATA',
+		                    customHeaders: [
+		                        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"]
+		                    ],
+		                    multipartName: 'file',
+		                    uploadFile: 'sonar-report.json',
+		                    validResponseCodes: '200,201,202',
+		                    quiet: false,
+		                    requestBody: """
+		                        scan_type=SonarQube Scan
+		                        &engagement=1
+		                        &product_name=PaymentGateway
+		                        &close_old_findings=true
+		                        &minimum_severity=Info
+		                        &active=false
+		                        &verified=false
+		                    """
+		                )
+		                
+		                // Alternative using bat/curl (if httpRequest fails)
+		                /*
+		                bat """
+		                    curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
+		                    -H "Authorization: Token %DOJO_TOKEN%" ^
+		                    -F "file=@sonar-report.json" ^
+		                    -F "scan_type=SonarQube Scan" ^
+		                    -F "engagement=1" ^
+		                    -F "product_name=PaymentGateway" ^
+		                    -F "close_old_findings=true"
+		                """
+		                */
+		            }
 		        }
 		    }
 		}
