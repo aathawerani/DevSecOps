@@ -75,11 +75,28 @@ pipeline {
 		stage('Upload to DefectDojo') {
 		    steps {
 		        script {
-		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
+		            withCredentials([
+		                string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN'),
+		                string(credentialsId: 'jenkins-api-credentials', variable: 'JENKINS_AUTH') // Add Jenkins API credentials
+		            ]) {
+		                // First get the Jenkins crumb
+		                def getCrumb = """
+		                    @echo off
+		                    curl -s -u "%JENKINS_AUTH%" "http://localhost:8080/crumbIssuer/api/json"
+		                """
+		                writeFile file: 'get_crumb.bat', text: getCrumb
+		                def crumbOutput = bat(script: 'get_crumb.bat', returnStdout: true).trim()
+		                
+		                // Parse the JSON response to get crumb fields
+		                def crumbJson = readJSON text: crumbOutput
+		                def crumbHeader = "${crumbJson.crumbRequestField}:${crumbJson.crumb}"
+		                
+		                // Modified curl command with crumb header
 		                def curlScript = """
 		                    @echo off
 		                    curl -X POST "http://localhost:8080/api/v2/import-scan/" ^
 		                    -H "Authorization: Token ${DOJO_TOKEN}" ^
+		                    -H "${crumbHeader}" ^
 		                    -H "accept: application/json" ^
 		                    -H "Content-Type: multipart/form-data" ^
 		                    -F "file=@sonar-report.json" ^
