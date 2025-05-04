@@ -83,9 +83,9 @@ pipeline {
                         [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
                         [name: 'accept', value: 'application/json']
                     ],
+                    contentType: 'APPLICATION_FORM',  // ✅ Correct MIME type
                     multipartName: 'file',
                     uploadFile: 'sonar-report.json',
-                    contentType: 'MULTIPART_FORM_DATA',
                     validResponseCodes: '200,201,202',
                     quiet: true,
                     requestBody: """
