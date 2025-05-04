@@ -76,27 +76,27 @@ pipeline {
 		    steps {
 		        script {
 		            withCredentials([string(credentialsId: 'defectdojo-api-token', variable: 'DOJO_TOKEN')]) {
-		                httpRequest(
-		                    httpMode: 'POST',
-		                    url: "http://localhost:8888/api/v2/import-scan/",
-		                    customHeaders: [
-		                        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
-		                        [name: 'accept', value: 'application/json']
-		                    ],
-		                    contentType: 'APPLICATION_FORM',  // ✅ Correct MIME type
-		                    multipartName: 'file',
-		                    uploadFile: 'sonar-report.json',
-		                    validResponseCodes: '200,201,202',
-		                    quiet: true,
-		                    requestBody: """
-		                        scan_type=SonarQube Scan
-		                        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
-		                        &minimum_severity=Info
-		                        &active=true
-		                        &verified=false
-		                    """
-		                )
-		            }
+						httpRequest(
+						    httpMode: 'POST',
+						    url: "http://localhost:8888/api/v2/import-scan/",
+						    customHeaders: [
+						        [name: 'Authorization', value: "Token ${DOJO_TOKEN}"],
+						        [name: 'accept', value: 'application/json']
+						    ],
+						    contentType: 'APPLICATION_FORM',
+						    multipartName: 'file',
+						    uploadFile: 'sonar-report.json',
+						    validResponseCodes: '200,201,202',
+						    requestBody: """
+						        scan_type=SonarQube Scan
+						        &engagement=${env.DEFECTDOJO_ENGAGEMENT_ID}
+						        &product_name=YOUR_PRODUCT_NAME  // ⚠️ Replace with actual product name
+						        &minimum_severity=Info
+						        &active=true
+						        &verified=false
+						        &close_old_findings=true
+						    """
+						)		            }
 		        }
 		    }
 		}
