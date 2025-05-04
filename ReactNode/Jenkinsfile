@@ -98,6 +98,31 @@ pipeline {
 		        }
 		    }
 		}
+		stage('Upload Dependency Check to DefectDojo') {
+		    steps {
+		        script {
+		            withCredentials([[
+		                $class: 'StringBinding',
+		                credentialsId: 'defectdojo-api-token',
+		                variable: 'SECURE_DOJO_TOKEN'
+		            ]]) {
+		                bat """
+		                    curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
+		                    -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
+		                    -F "file=@dependency-check-report/dependency-check-report.xml" ^
+		                    -F "scan_type=Dependency Check Scan" ^
+		                    -F "engagement=1" ^
+		                    -F "product_name=PaymentGateway" ^
+		                    -F "close_old_findings=true" ^
+		                    -F "minimum_severity=Info" ^
+		                    -F "active=true" ^
+		                    -F "verified=true" ^
+		                    -F "tags=jenkins,dependency-check"
+		                """
+		            }
+		        }
+		    }
+		}
 		/*stage('Build') {
 		    steps {
 		        script {
