@@ -23,7 +23,7 @@ pipeline {
 				git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
 			}
 		}
-		/*stage('Install Dependencies') {
+		stage('Install Dependencies') {
             steps {
                 script {
                     failedStage = "Install Dependencies"
@@ -41,7 +41,7 @@ pipeline {
 	            script {
 	        		failedStage = "Dependency Check"  //Set stage name
 	        	}
-                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format HTML --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
+                bat '"D:\\DevOps\\Dependency-Check\\bin\\dependency-check.bat" --project "PaymentGateway" --scan . --format JSON --out dependency-check-report --nvdApiKey da276fc5-0eba-4a30-88ec-220c690c9d53 --yarn "C:\\Users\\ali.thawerani\\AppData\\Roaming\\npm\\yarn.cmd"'
 			}
 		}
 		stage('SonarQube Analysis') {
@@ -55,7 +55,7 @@ pipeline {
 		            }
                 }
             }
-        }*/
+        }
         stage('Download SonarQube Report') {
             steps {
                 script {
@@ -109,7 +109,7 @@ pipeline {
 		                bat """
 		                    curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
 		                    -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
-		                    -F "file=@dependency-check-report/dependency-check-report.xml" ^
+		                    -F "file=@dependency-check-report/dependency-check-report.json" ^
 		                    -F "scan_type=Dependency Check Scan" ^
 		                    -F "engagement=1" ^
 		                    -F "product_name=PaymentGateway" ^
