@@ -22,3 +22,5 @@ docker system prune -a --volumes -f
 
 
 kind create cluster --config=/mnt/d/aaht14/gitRepos/DevSecOps/ReactNode/kind/kind-config.yaml
+
+DD_PORT=8888 DD_TLS_PORT=8444 docker compose up -d

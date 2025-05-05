@@ -12,9 +12,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    failedStage = "Checkout"
-                }
                 git branch: 'main', credentialsId: '3ddb38d7-5108-4fae-865b-0120e45b2a0f', url: 'https://github.com/aathawerani/PaymentGateway.git'
             }
         }
@@ -44,7 +41,7 @@ pipeline {
             }
         }
 
-        /*stage('Docker Security Scan') {
+        stage('Docker Security Scan') {
             parallel {
                 stage('Frontend Scan') {
                     steps {
@@ -57,7 +54,49 @@ pipeline {
                     }
                 }
             }
-        }*/
+        }
+
+        stage('Upload Trivy reports to DefectDojo') {
+            steps {
+                script {
+                    withCredentials([[ 
+                        $class: 'StringBinding', 
+                        credentialsId: 'defectdojo-api-token', 
+                        variable: 'SECURE_DOJO_TOKEN' 
+                    ]]) {
+                        // Upload Frontend Trivy Report
+                        bat """
+                            curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
+                            -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
+                            -F "file=@frontend-trivy-report.json" ^
+                            -F "scan_type=Trivy Scan" ^
+                            -F "engagement=1" ^
+                            -F "product_name=PaymentGateway" ^
+                            -F "close_old_findings=false" ^
+                            -F "minimum_severity=Info" ^
+                            -F "active=true" ^
+                            -F "verified=false"
+                        """
+
+                        // Upload Backend Trivy Report
+                        bat """
+                            curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
+                            -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
+                            -F "file=@backend-trivy-report.json" ^
+                            -F "scan_type=Trivy Scan" ^
+                            -F "engagement=1" ^
+                            -F "product_name=PaymentGateway" ^
+                            -F "close_old_findings=false" ^
+                            -F "minimum_severity=Info" ^
+                            -F "active=true" ^
+                            -F "verified=false"
+                        """
+                    }
+                }
+            }
+        }
+
+
 
         stage('Load Docker Images into Kubernetes') {
             steps {
@@ -89,15 +128,39 @@ pipeline {
 
         stage('OWASP ZAP Security Scan') {
             steps {
-                script {
-                    failedStage = "OWASP ZAP Security Scan"
-                }
                 bat '''
                 set ZAP_HOMEDIR="D:\\DevOps\\jenkins\\.jenkins\\workspace\\DevSecOps3\\ZAP\\Zed_Home"
-                java -jar "D:\\DevOps\\ZAP\\Zed Attack Proxy\\zap-2.16.0.jar" -cmd -quickurl "http://localhost:32356" -quickprogress -quickout zap_report.html -host 127.0.0.1 -port 9090
+                java -jar "D:\\DevOps\\ZAP\\Zed Attack Proxy\\zap-2.16.0.jar" -cmd -quickurl "http://localhost:32356" -quickprogress -quickout "C:\\Temp\\zap_report.html" -host 127.0.0.1 -port 9090
+                copy /Y "C:\\Temp\\zap_report.html" "zap_report.html"
                 '''
             }
         }
+
+        stage('Upload ZAP report to DefectDojo') {
+            steps {
+                script {
+                    withCredentials([[ 
+                        $class: 'StringBinding', 
+                        credentialsId: 'defectdojo-api-token', 
+                        variable: 'SECURE_DOJO_TOKEN' 
+                    ]]) {
+                        bat """
+                            curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
+                            -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
+                            -F "file=@zap_report.html" ^
+                            -F "scan_type=ZAP Scan" ^
+                            -F "engagement=1" ^
+                            -F "product_name=PaymentGateway" ^
+                            -F "close_old_findings=false" ^
+                            -F "minimum_severity=Info" ^
+                            -F "active=true" ^
+                            -F "verified=false"
+                        """
+                    }
+                }
+            }
+        }
+
     }
     
     post {

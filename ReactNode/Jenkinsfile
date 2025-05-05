@@ -72,7 +72,7 @@ pipeline {
                 }
             }
         }
-		stage('Upload to DefectDojo') {
+		stage('Upload SonarQube report to DefectDojo') {
 		    steps {
 		        script {
 		            // Secure credential handling without interpolation warning
