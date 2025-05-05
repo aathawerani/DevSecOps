@@ -121,7 +121,7 @@ pipeline {
             }
         }
 
-        stage('OWASP ZAP Security Scan') {
+        /*stage('OWASP ZAP Security Scan') {
             steps {
                 bat '''
                 set ZAP_HOMEDIR="D:\\DevOps\\jenkins\\.jenkins\\workspace\\DevSecOps3\\ZAP\\Zed_Home"
@@ -129,8 +129,17 @@ pipeline {
                 copy /Y "C:\\Temp\\zap_report.html" "zap_report.html"
                 '''
             }
-        }
+        }*/
 
+        stage('OWASP ZAP Docker Full Scan') {
+            steps {
+                bat '''
+                docker run -v %CD%:/zap/wrk/:rw -t owasp/zap2docker-stable zap-full-scan.py ^
+                    -t http://host.docker.internal:32356 ^
+                    -r zap_report.html -x zap_report.xml
+                '''
+            }
+        }
         stage('Upload ZAP report to DefectDojo') {
             steps {
                 script {
@@ -142,7 +151,7 @@ pipeline {
                         bat """
                             curl -X POST "http://localhost:8888/api/v2/import-scan/" ^
                             -H "Authorization: Token %SECURE_DOJO_TOKEN%" ^
-                            -F "file=@zap_report.html" ^
+                            -F "file=@zap_report.xml" ^
                             -F "scan_type=ZAP Scan" ^
                             -F "engagement=1" ^
                             -F "product_name=PaymentGateway" ^
