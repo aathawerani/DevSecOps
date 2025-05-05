@@ -42,19 +42,14 @@ pipeline {
         }
 
         stage('Docker Security Scan') {
-            parallel {
-                stage('Frontend Scan') {
-                    steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json my-frontend-app:latest"
-                    }
-                }
-                stage('Backend Scan') {
-                    steps {
-                        bat "\"D:\\DevOps\\trivy\\trivy\" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output backend-trivy-report.json my-backend-app:latest"
-                    }
-                }
+            steps {
+                bat '''
+                "D:\\DevOps\\trivy\\trivy" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json my-frontend-app:latest
+                "D:\\DevOps\\trivy\\trivy" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output backend-trivy-report.json my-backend-app:latest
+                '''
             }
         }
+
 
         stage('Upload Trivy reports to DefectDojo') {
             steps {
