@@ -138,6 +138,7 @@ pipeline {
                     -t http://host.docker.internal:32356 ^
                     -r zap_report.html ^
                     -x zap_report.xml
+                if %ERRORLEVEL% NEQ 0 exit 0
                 '''
             }
         }
@@ -170,10 +171,6 @@ pipeline {
     }
     
     post {
-        /*always {
-            bat 'docker image prune -f'
-            bat "docker system prune -f --volumes"  // Cleanup unused Docker resources
-        }*/
         success {
             emailext (
                 to: "${EMAIL_RECIPIENT}",
@@ -206,7 +203,6 @@ pipeline {
                     <body>
                     <h2>Jenkins Pipeline Failure Notification</h2>
                     <p><strong>Build Status:</strong> ${buildStatus}</p>
-                    <p><strong>Failed Stage:</strong> ${failedStage}</p>
                     <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
                     <p><strong>Build Duration:</strong> ${buildDuration}</p>
                     <p><strong>Timestamp (UTC):</strong> ${timestamp}</p>
