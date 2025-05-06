@@ -41,7 +41,7 @@ pipeline {
             }
         }
 
-        stage('Docker Security Scan') {
+        /*stage('Docker Security Scan') {
             steps {
                 bat '''
                 "D:\\DevOps\\trivy\\trivy" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json my-frontend-app:latest
@@ -89,7 +89,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }*/
 
 
 
@@ -134,12 +134,14 @@ pipeline {
         stage('OWASP ZAP Docker Full Scan') {
             steps {
                 bat '''
-                docker run -v %CD%:/zap/wrk/:rw -t owasp/zap2docker-stable zap-full-scan.py ^
+                docker run -v %CD%:/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py ^
                     -t http://host.docker.internal:32356 ^
-                    -r zap_report.html -x zap_report.xml
+                    -r zap_report.html ^
+                    -x zap_report.xml
                 '''
             }
         }
+
         stage('Upload ZAP report to DefectDojo') {
             steps {
                 script {
