@@ -41,7 +41,7 @@ pipeline {
             }
         }
 
-        /*stage('Docker Security Scan') {
+        stage('Docker Security Scan') {
             steps {
                 bat '''
                 "D:\\DevOps\\trivy\\trivy" image --no-progress --exit-code 0 --severity HIGH,CRITICAL --format json --output frontend-trivy-report.json my-frontend-app:latest
@@ -49,7 +49,6 @@ pipeline {
                 '''
             }
         }
-
 
         stage('Upload Trivy reports to DefectDojo') {
             steps {
@@ -89,9 +88,7 @@ pipeline {
                     }
                 }
             }
-        }*/
-
-
+        }
 
         stage('Load Docker Images into Kubernetes') {
             steps {

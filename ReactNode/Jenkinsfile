@@ -123,7 +123,7 @@ pipeline {
 		        }
 		    }
 		}
-		/*stage('Build') {
+		stage('Build') {
 		    steps {
 		        script {
 		            failedStage = "Build"
@@ -167,7 +167,7 @@ pipeline {
 					}
 		        }
 		    }
-		}*/
+		}
 	}
 	post {
         success {
